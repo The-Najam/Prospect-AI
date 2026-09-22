@@ -1,0 +1,8 @@
+.env
+data/
+logs/
+__pycache__/
+*.pyc
+/venv/
+test.py
+__init__.py
