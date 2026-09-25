@@ -3,7 +3,32 @@ import asyncio
 from config.logger import logger
 from urllib.parse import urlparse, urljoin, urlsplit, urlunsplit
 from bs4 import BeautifulSoup
+import socket
+import requests
 
+
+def input_links():
+    url = input("Paste the url of Prospect Website : ")
+
+    if url.startswith(("http://","https://")):
+            domain = urlparse(url).netloc
+            try:
+                socket.gethostbyname(domain)
+                logger.info("Valid Reachable Domain")
+            except socket.gaierror:
+                logger.error("Domain Not Exist")
+
+            try:
+                response = requests.get(url, timeout=10)
+
+                logger.info("Server is reachable")
+                logger.info("Status:", response.status_code)
+
+                return url
+            except requests.exceptions.RequestException as e:
+                logger.error("Server could not be reached", e)
+    else:
+        logger.error("Invalid Url")
 
 
 async def fetch_homepage(url):
@@ -113,6 +138,21 @@ async def fetch_all(selected_page_url):
         for page in selected_page_url:
             url = page["url"]
             page_type = page["page_type"]
+            if url.lower().endswith((
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".gif",
+                ".webp",
+                ".svg",
+                ".css",
+                ".js",
+                ".mp4",
+                ".mp3",
+                ".zip"
+            )):
+                print("This URL points to a non-data file")
+                continue
             try:
                 content = await crawler.arun(url,config)
                 for c in content:
@@ -133,7 +173,7 @@ async def fetch_all(selected_page_url):
 
 
 if __name__ == "__main__":
-    url = "https://prodigmar.com/?gad_source=1&gad_campaignid=23460421827&gbraid=0AAAAABmXAZdfNYGMIldoHkx-SPV0bcUn2&gclid=Cj0KCQjwlNPVBhCMARIsAPZ5Rqje_k3eIL_58vTjo7-NmVn2SED5brQnblnOiihT6j-40DK3Iz_vCZQaAtgdEALw_wcB"
+    url = input_links()
     page_content, links  = asyncio.run(fetch_homepage(url))
     urls = normalize_deduplicate_links(links,url)
     selected_pages_url = url_classification(urls)
