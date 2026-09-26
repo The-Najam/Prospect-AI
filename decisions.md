@@ -77,3 +77,10 @@ This log records architectural and design decisions made during the engineering 
 **Alternatives:**
 - Full-site crawl — rejected: latency-incompatible and currently unreliable (timeouts).
 - Homepage-only — rejected: likely insufficient signal for qualification/personalization.
+
+
+*#D7 addendum*
+**Decision**: Zero-pages-succeeded floor is not implemented now — deferred.
+**Why**: Judged low-priority/unlikely enough for now to not block moving forward; partial success (even 1-2 of 5) already returns real content, so this only affects the rare full-failure case.
+**Known gap**: If all 5 pages fail, Research proceeds with no real content, which risks fabricated output under D3/D6's known hallucination concern. No retry is currently triggered in this case.
+**Revisit when**: Testing/eval (stage 9) shows this actually happening, or before wider rollout.
