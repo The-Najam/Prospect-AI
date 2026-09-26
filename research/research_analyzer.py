@@ -1,7 +1,8 @@
 from research.data_cleaner import clean_html
-from research.data_extraction import main
+from research.data_extraction import fetch_all
 from models.research_schemas import Research_result
 from models.research_tool_schema import social_media_extractor
+from models.workflow_state import state
 from tools.media_info_extraction import extraction
 from tools.web_search import search_web
 import asyncio
@@ -180,7 +181,9 @@ def analyzer(content):
             ],
             tools=tools
         )
-       
+        state.total_token_used += chat_completion.usage.total_tokens
+        state.input_tokens += chat_completion.usage.prompt_tokens
+        state.output_tokens += chat_completion.usage.completion_tokens
         if chat_completion.choices[0].message.tool_calls: 
             try:
                 tools_call = chat_completion.choices[0].message.tool_calls
@@ -212,6 +215,7 @@ def analyzer(content):
                         content.append(tool_result)
         
                 final_response = second_call(content)
+                print("TOTAL TOKENS USE AT RESEARCH STAGE : ", state.total_token_used)
                 return final_response
             except Exception as e:
                 logger.error("Failed To Call Tool", e)
@@ -220,6 +224,7 @@ def analyzer(content):
         else:
             logger.info("Tool Call Not Detected!")
             result = second_call(content)
+            print("TOTAL TOKENS USE AT RESEARCH STAGE : ", state.total_token_used)
             return result
     except Exception as e:
         logger.error("Research Can't be done", e)
@@ -354,6 +359,11 @@ def second_call(content):
                     }
                 }
             )
+        
+        state.total_token_used += chat_completion.usage.total_tokens
+        state.input_tokens += chat_completion.usage.prompt_tokens
+        state.output_tokens += chat_completion.usage.completion_tokens
+        
         response = chat_completion.choices[0].message.content
         research_result = Research_result(**json.loads(response))
         logger.info("Research Completed Successfully")
@@ -367,13 +377,6 @@ def second_call(content):
 
 
         
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
 

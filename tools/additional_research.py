@@ -1,6 +1,7 @@
 from groq import Groq
 from config.settings import setting
 from models.research_tool_schema import additional_research
+from models.workflow_state import state
 import json
 from config.logger import logger
 
@@ -58,7 +59,9 @@ def missing_info_research(company_data):
             }
         }
     )
-
+    state.total_token_used += chat_completions.usage.total_tokens
+    state.input_tokens += chat_completions.usage.prompt_tokens
+    state.output_tokens += chat_completions.usage.completion_tokens
     response = chat_completions.choices[0].message.content
 
     print(response)

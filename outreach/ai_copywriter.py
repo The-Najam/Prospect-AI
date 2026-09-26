@@ -1,10 +1,11 @@
 from config.settings import setting
 from config.logger import logger
 from groq import Groq
-from research.research_analyzer import analyzer, clean_html, main
+from research.research_analyzer import analyzer, clean_html, fetch_all
 from strategy.strategy_agent import strategy_agent
 from models.outreach_schema import Outreach_Message
 from models.research_tool_schema import offer_tool_input
+from models.workflow_state import state
 from tools.strategy_review import offerrefine
 import asyncio
 import json
@@ -188,6 +189,9 @@ def review(outreach_input):
         ],
         tools=tools
     )
+    state.total_token_used += chat_completion.usage.total_tokens
+    state.input_tokens += chat_completion.usage.prompt_tokens
+    state.output_tokens += chat_completion.usage.completion_tokens
 
 
     if chat_completion.choices[0].message.tool_calls[0]:
@@ -213,11 +217,13 @@ def review(outreach_input):
         outreach_input = json.dumps(data)
         logger.info("strategy Reviewed")
         result = outreach_message(outreach_input)
+        print("TOTAL TOKENS USE AT OUTREACH STAGE : ", state.total_token_used)
         print(result)
         return result
     else:
         logger.info("TOOL CALLED NOT REQUIRED")
         result = outreach_message(outreach_input)
+        print("TOTAL TOKENS USE AT OUTREACH STAGE : ", state.total_token_used)
         print(result)
         logger.info("Successfully Generated Message")
         return result
@@ -357,6 +363,9 @@ def outreach_message(outreach_input):
             }
         }
     )
+    state.total_token_used += chat_completion.usage.total_tokens
+    state.input_tokens += chat_completion.usage.prompt_tokens
+    state.output_tokens += chat_completion.usage.completion_tokens
     response = chat_completion.choices[0].message.content
     outreach_result = Outreach_Message(**json.loads(response))
     print(outreach_result)
