@@ -2,6 +2,7 @@ from groq import Groq
 from config.settings import setting
 from models.research_tool_schema import offer_refine, offer_tool_input
 import json
+from models.workflow_state import state
 from config.logger import logger
 
 def offerrefine(strategy_result):
@@ -61,7 +62,9 @@ def offerrefine(strategy_result):
         }
     )
 
-
+    state.total_token_used += chat_completions.usage.total_tokens
+    state.input_tokens += chat_completions.usage.prompt_tokens
+    state.output_tokens += chat_completions.usage.completion_tokens
     response = chat_completions.choices[0].message.content
     data = json.loads(response)
     result = offer_refine(**data)

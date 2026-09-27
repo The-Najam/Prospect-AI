@@ -1,13 +1,45 @@
 from research.research_analyzer import analyzer
 from research.data_cleaner import clean_html
-from research.data_extraction import main
+from research.data_extraction import fetch_all, input_links,fetch_homepage, normalize_deduplicate_links, url_classification
 from strategy.strategy_agent import strategy_agent
 from outreach.ai_copywriter import outreach_message
 from outreach.final_report import report
 from models.workflow_state import state
 from config.logger import logger
+from datetime import datetime, timezone
+from database.database import create_dbconnection, insert_data, update_data, updata_data_fail
+import uuid
 import asyncio
 import json
+
+
+def start_run(url):
+    run_id = uuid.uuid4()
+    started_at = datetime.now(timezone.utc)
+    status = 'running'
+    conn, cur = create_dbconnection()
+    insert_data(conn,cur,url,run_id,started_at,status)
+    return started_at, run_id
+
+    
+
+def complete_run(run_id,completed_at,latency, estimated_cost):
+    try:
+        conn, cur = create_dbconnection()
+        update_data(conn,cur,run_id,completed_at,latency,estimated_cost)
+        logger.info("DataBase Updated Successfully")
+    except Exception as e:
+        logger.error("Failed To Update Database", e)
+
+
+def fail_run(run_id,error_type,retry_count,estimated_cost,latency):
+    completed_at = datetime.now(timezone.utc)
+    conn, cur = create_dbconnection()
+    updata_data_fail(conn,cur, run_id,completed_at,latency,estimated_cost,error_type,retry_count)
+
+
+
+
 
 
 def input_data(research_result):
@@ -43,23 +75,32 @@ def outreach_route(state):
 
 
 def research_step():
-    research_result = analyzer(state.Data_Extraction)
-    print("Current Status : ", state.status)
-    print("Current Step : ", state.current_step)
-    next_step = research_route(state)
-    #print("RESEARCH RETURNED:", research_result)
-    return research_result, next_step
+    try:
+        research_result = analyzer(state.Data_Extraction[:2])
+        print("Current Status : ", state.status)
+        print("Current Step : ", state.current_step)
+        next_step = research_route(state)
+        print("RESEARCH RETURNED:", research_result)
+        return research_result, next_step
+    except Exception:
+        logger.exception("Failed To generate Research ! ")
+        raise
 
 
 def strategy_step():
-    strategy_result = strategy_agent(json.dumps(state.research_result.model_dump()))
-    state.current_step = "Strategy"
-    print("Current Status : ", state.status)
-    print("Current Step : ", state.current_step)
-    next_step = strategy_route(state)
-    #print("STRATEGY RETURNED:", strategy_result)
+    try:
+        strategy_result = strategy_agent(json.dumps(state.research_result.model_dump()))
+        state.current_step = "Strategy"
+        print("Current Status : ", state.status)
+        print("Current Step : ", state.current_step)
+        next_step = strategy_route(state)
+        #print("STRATEGY RETURNED:", strategy_result)
 
-    return strategy_result, next_step
+        return strategy_result, next_step
+
+    except Exception as e:
+        logger.exception("Failed To generate Outreach ! ",e)
+        raise
 
 
 
@@ -82,24 +123,23 @@ def outreach_step():
 
 
 
-
-
-
-
-
-
-def workflow(retry_count, max_retry):
+def workflow(retry_count, max_retry, url):
     state.status = "running"
-    raw_data = asyncio.run(main())
-    state.Data_Extraction = clean_html(raw_data)
+    url = input_links()
+    started_at , run_id = start_run(url)
+    page_content, links  = asyncio.run(fetch_homepage(url))
+    urls = normalize_deduplicate_links(links,url)
+    selected_pages_url = url_classification(urls)
+    selected_pages_url.append({"url":url, "page_type":"Home"})
+    page_content = asyncio.run(fetch_all(selected_pages_url))
+    state.Data_Extraction = clean_html(page_content)
+    
 
-    print("Current Status : ", state.status)
 
-   
     next_step = data_route(state)
     if next_step == "research":
         state.research_result, next_step = research_step()
-        print("RESEARCH : ", state.research_result)
+        print("OUTER RESEARCH : ", state.research_result)
     elif next_step == "retry":
         while True:
             if retry_count < max_retry:
@@ -109,13 +149,13 @@ def workflow(retry_count, max_retry):
                     retry_count = 0
                     break
             else:
+                error_type = 'research'
+                estimated_cost = (state.input_tokens / (1000000 * 0.15)) + (state.output_tokens / (1000000 * 0.60))
+                fail_run(run_id,error_type,retry_count,estimated_cost,latency)
                 return None
 
-
+    
     research_result, state.channel = input_data(state.research_result)
-
-
-
     next_step = research_route(state)
     if next_step == "strategy":
         state.strategy_result, next_step = strategy_step()
@@ -129,6 +169,9 @@ def workflow(retry_count, max_retry):
                         retry_count = 0
                         break
                 else:
+                    error_type = 'strategy'
+                    estimated_cost = (state.input_tokens / (1000000 * 0.15)) + (state.output_tokens / (1000000 * 0.60))
+                    fail_run(run_id,error_type,retry_count,estimated_cost,latency)
                     return None
 
     
@@ -148,6 +191,9 @@ def workflow(retry_count, max_retry):
                     break
             else:
                 logger.error("Outreac Generation Failled")
+                error_type = 'outreach'
+                estimated_cost = (state.input_tokens / (1000000 * 0.15)) + (state.output_tokens / (1000000 * 0.60))
+                fail_run(run_id,error_type,retry_count,estimated_cost,latency)
                 return None
         
 
@@ -156,16 +202,22 @@ def workflow(retry_count, max_retry):
 
     print("Current Status : ", state.status)
     print("Current Step : ", state.current_step)
-    
-
+    completed_at = datetime.now(timezone.utc)
+    latency = completed_at.timestamp() - started_at.timestamp()
+    print("TOTAL TOKEN USED : ",state.total_token_used)
+    print("TOTAL INPUT TOKENS : ", state.input_tokens)
+    print("TOTAL OUTPUT TOKENS : ", state.output_tokens)
+    estimated_cost = (state.input_tokens / (1000000 * 0.15)) + (state.output_tokens / (1000000 * 0.60))
+    complete_run(run_id,completed_at,latency,estimated_cost)
     return state.Final_report
 
 
 if __name__ == "__main__":
     retry_count = 0
     max_retry = 3
+    url = input_links()
 
-    workflow(retry_count,max_retry)
+    workflow(retry_count,max_retry,url)
 
 
 

@@ -1,4 +1,4 @@
-from research.research_analyzer import analyzer, clean_html, main
+from research.research_analyzer import analyzer, clean_html, fetch_all
 from strategy.strategy_agent import strategy_agent
 from outreach.ai_copywriter import outreach_message
 import asyncio

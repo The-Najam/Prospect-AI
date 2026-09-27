@@ -3,6 +3,7 @@ from groq import Groq
 from config.settings import setting
 import json
 from config.logger import logger
+from models.workflow_state import state
 
 
 
@@ -62,7 +63,9 @@ def search_web(industry):
                 }
             }
         )
-
+        state.total_token_used += chat_completion.usage.total_tokens
+        state.input_tokens += chat_completion.usage.prompt_tokens
+        state.output_tokens += chat_completion.usage.completion_tokens
         response = chat_completion.choices[0].message.content
         result = SearchWeb(**json.loads(response))
         print(result)

@@ -2,9 +2,10 @@ from models.strategy_schema import Strategy_result
 from config.settings import setting
 from config.logger import logger
 from research.data_cleaner import clean_html
-from research.data_extraction import main
+from research.data_extraction import fetch_all
 from research.research_analyzer import analyzer
 from tools.additional_research import missing_info_research
+from models.workflow_state import state
 from groq import Groq
 import json
 import asyncio
@@ -172,7 +173,9 @@ def strategy_reasoning(strategy_input):
             ],
             tools=tools
         )
-
+        state.total_token_used += chat_completions.usage.total_tokens
+        state.input_tokens += chat_completions.usage.prompt_tokens
+        state.output_tokens += chat_completions.usage.completion_tokens
         if chat_completions.choices[0].message.tool_calls[0]:
             logger.info("Tool Called!")
             tool = chat_completions.choices[0].message.tool_calls[0]
@@ -196,10 +199,12 @@ def strategy_reasoning(strategy_input):
             print("TYPE OF STRATEGY INPUT", type(strategy_input))
             result = strategy_agent(strategy_input)
             print(result)
+            print("TOTAL TOKENS USE AT STRATEGY STAGE : ", state.total_token_used)
             logger.info("Strategy Created Successfully!")
             return result
         else:
             result = strategy_agent(strategy_input)
+            print("TOTAL TOKENS USE AT STRATEGY STAGE : ", state.total_token_used)
             print(result)
             return result
     except Exception as e:
@@ -413,6 +418,9 @@ def strategy_agent(strategy_input):
                 }
             }
         )
+        state.total_token_used += chat_completion.usage.total_tokens
+        state.input_tokens += chat_completion.usage.prompt_tokens
+        state.output_tokens += chat_completion.usage.completion_tokens
         response = chat_completion.choices[0].message.content
         result = Strategy_result(**json.loads(response))
         logger.info("Strategy Created Sucessfully")
