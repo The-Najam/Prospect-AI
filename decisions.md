@@ -77,3 +77,49 @@ This log records architectural and design decisions made during the engineering 
 **Alternatives:**
 - Full-site crawl — rejected: latency-incompatible and currently unreliable (timeouts).
 - Homepage-only — rejected: likely insufficient signal for qualification/personalization.
+
+
+*#D7 addendum*
+**Decision**: Zero-pages-succeeded floor is not implemented now — deferred.
+**Why**: Judged low-priority/unlikely enough for now to not block moving forward; partial success (even 1-2 of 5) already returns real content, so this only affects the rare full-failure case.
+**Known gap**: If all 5 pages fail, Research proceeds with no real content, which risks fabricated output under D3/D6's known hallucination concern. No retry is currently triggered in this case.
+**Revisit when**: Testing/eval (stage 9) shows this actually happening, or before wider rollout.
+
+# D9
+
+**Context:** Proposed a broad list of ~28 operational/business metrics to track via cost/token tracking database (D-earlier decision to add PostgreSQL for this purpose).
+
+**Decision:** Track a focused core set only:
+
+- Jobs processed
+- Success/failure rate
+- End-to-end error rate by type
+- Processing latency (per run and average)
+- Timeout rate
+- Retry rate
+- LLM API error rate
+- Cost per job
+
+**Why:** Most of the proposed list measured features that don't exist in this system (file uploads, users/accounts, queues, storage) or belonged to infra-level monitoring rather than the application. Tracking metrics for non-existent features adds schema complexity with zero signal.
+
+The core set directly answers the questions that matter now:
+
+- Is this reliable?
+- Is this fast enough?
+- Is this affordable?
+
+**Alternatives:** Full ~28-metric list — rejected per above. Revisit individual metrics only when the feature they'd measure actually exists (e.g., bulk processing would justify queue/wait-time tracking).
+
+
+# D10
+
+**Context:** Feature — accumulate multiple saved prospect reports within one sitting and download them together as a single file.
+
+**Decision:** Server-issued anonymous session ID (cookie-based, no login). Reports are tagged by session ID in storage, and "download all" retrieves and combines everything under that session ID. The session has an expiry/cleanup policy (TTL still to be decided).
+
+**Why:** Enables accumulating saves across multiple prospect lookups within one sitting without requiring accounts. Chosen over a fully client-side approach (Option A) because server-side accumulation is more robust to page refreshes within the session. Chosen over a client-generated ID (Option C) because C carried the same server-side storage/cleanup burden as B with no real simplification, making B's more standard approach preferable.
+
+**Alternatives:**
+
+- **A (fully client-side, browser-held state, no backend involvement)** — rejected: fragile to refresh/tab-close, though simplest overall.
+- **C (client-generated ID)** — rejected: same server-side burden as B, with no meaningful advantage.

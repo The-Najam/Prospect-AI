@@ -12,5 +12,8 @@ class State(BaseModel):
     strategy_result : dict | None = None
     outreach_result : dict | None = None
     Final_report : dict | None = None
+    total_token_used : int = 0
+    input_tokens : int = 0
+    output_tokens : int = 0
 
 state = State()
