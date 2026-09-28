@@ -55,6 +55,8 @@ This log records architectural and design decisions made during the engineering 
 **Why:** Keeps Research focused purely on factual discovery; user-provided sales context is layered in only where it's needed (Strategy). Confirmed as current real implementation, not a proposal.
 **Alternatives:** None proposed yet — flagged as an open concern that Outreach having no raw Research visibility means Strategy is the sole gatekeeper between facts and the outreach message, likely related to D3.
 
+**Amended by D12 (2026-09-28):** Research now also receives the user's `service`. It still never sees `proof` or `low_risk`.
+
 ---
 
 #D6
@@ -123,3 +125,18 @@ The core set directly answers the questions that matter now:
 
 - **A (fully client-side, browser-held state, no backend involvement)** — rejected: fragile to refresh/tab-close, though simplest overall.
 - **C (client-generated ID)** — rejected: same server-side burden as B, with no meaningful advantage.
+
+
+#D12
+**Date:** 2026-09-28
+**Context:** A test run of the Research agent on a real site (dentist / expert-witness) showed that missing facts (company size, pricing) came back empty, which is correct. But pain points, buying behavior and objections were filled with confident text that the website could not have supplied. Strategy receives these as if they were findings, which likely contributes to D6.
+**Decision:**
+1. **Pain points:** Research receives the user's `service` in its prompt and looks for pain points from that angle. Each pain point must trace to something Research actually saw (a gap on the site, or a `search_web()` result). If there is no signal, the list stays empty.
+2. **Buying behavior and objections:** kept, but renamed in the schema to `general_buying_behavior` and `general_market_objections`. They are general market context, not facts about this prospect.
+3. **User inputs:** `user_service`, `user_proof` and `user_low_risk` are set by code, never by the LLM.
+**Why:** These fields can't be confirmed from a website. A human researcher would also infer them from the service being sold and from market knowledge, and real objections only appear in real conversations. Labeling them in the schema keeps that distinction from getting lost in the prose. Requiring a visible signal for pain points stops the agent from inventing problems that happen to match the user's service.
+**Alternatives:**
+- Prompt-only rule ("only write what the page says") — rejected: nothing enforces it, and these are the fields the model most wants to fill.
+- Confirmed/inferred label on every item (D3) — rejected for now: heavier schema, and it depends on the model labeling its own guesses honestly.
+- Remove the fields from Research and let Strategy infer them — rejected: moves the guessing into Strategy, which is already the known problem agent (D6).
+- Evidence required for every field — rejected: buying behavior and objections can't be grounded from a company website.
