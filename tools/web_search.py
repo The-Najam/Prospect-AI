@@ -15,16 +15,15 @@ def search_web(industry):
     ## Output ##
     Return the result as valid JSON matching the structure below.
     { 
-       "pain_points" :list[str],
+       "pain_points" : [{"Pain_Point":value, "Evidence":Link}],
        "avilable_solutions" : list[str],
        "satisfied" : bool,
-       "resources" : list[str]
- 
-       
+       "resources" : list[str] 
     }
 
     ## Field Definations ##
     - pain_points : You must provide the list of pain points the industry mention is facing based on evidence.
+        For Each Pain Point You must Give the citation link for that pain point
     - avilable_solutions : You must list down what avilable_solutions industry using to solve their pain points
     - satified : This field tells the solutions they're using are they satisfied with it, if industry tells that they happy with current solutions then return True else False
     - resources : list down the public forums name you used to do the research
@@ -43,7 +42,7 @@ def search_web(industry):
         )
 
         chat_completion = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=setting.model,
             messages=[
                 {
                     "role" : "system",
@@ -69,6 +68,9 @@ def search_web(industry):
         response = chat_completion.choices[0].message.content
         result = SearchWeb(**json.loads(response))
         print(result)
+    
+        return result
+
     except Exception as e:
         logger.error("Failed to Research Industry!", e)
 

@@ -55,6 +55,8 @@ This log records architectural and design decisions made during the engineering 
 **Why:** Keeps Research focused purely on factual discovery; user-provided sales context is layered in only where it's needed (Strategy). Confirmed as current real implementation, not a proposal.
 **Alternatives:** None proposed yet — flagged as an open concern that Outreach having no raw Research visibility means Strategy is the sole gatekeeper between facts and the outreach message, likely related to D3.
 
+**Amended by D12 (2026-09-28):** Research now also receives the user's `service`. It still never sees `proof` or `low_risk`.
+
 ---
 
 #D6
@@ -123,3 +125,66 @@ The core set directly answers the questions that matter now:
 
 - **A (fully client-side, browser-held state, no backend involvement)** — rejected: fragile to refresh/tab-close, though simplest overall.
 - **C (client-generated ID)** — rejected: same server-side burden as B, with no meaningful advantage.
+
+
+#D12
+**Date:** 2026-09-28
+**Context:** A test run of the Research agent on a real site (dentist / expert-witness) showed that missing facts (company size, pricing) came back empty, which is correct. But pain points, buying behavior and objections were filled with confident text that the website could not have supplied. Strategy receives these as if they were findings, which likely contributes to D6.
+**Decision:**
+1. **Pain points:** Research receives the user's `service` in its prompt and looks for pain points from that angle. Each pain point must trace to something Research actually saw (a gap on the site, or a `search_web()` result). If there is no signal, the list stays empty.
+2. **Buying behavior and objections:** kept, but renamed in the schema to `general_buying_behavior` and `general_market_objections`. They are general market context, not facts about this prospect.
+3. **User inputs:** `user_service`, `user_proof` and `user_low_risk` are set by code, never by the LLM.
+**Why:** These fields can't be confirmed from a website. A human researcher would also infer them from the service being sold and from market knowledge, and real objections only appear in real conversations. Labeling them in the schema keeps that distinction from getting lost in the prose. Requiring a visible signal for pain points stops the agent from inventing problems that happen to match the user's service.
+**Alternatives:**
+- Prompt-only rule ("only write what the page says") — rejected: nothing enforces it, and these are the fields the model most wants to fill.
+- Confirmed/inferred label on every item (D3) — rejected for now: heavier schema, and it depends on the model labeling its own guesses honestly.
+- Remove the fields from Research and let Strategy infer them — rejected: moves the guessing into Strategy, which is already the known problem agent (D6).
+- Evidence required for every field — rejected: buying behavior and objections can't be grounded from a company website.
+
+
+
+#D13
+Context: A test input with almost no stated facts (a generic budgeting-app description) caused Research to return a fully empty Research_result, since every field correctly followed the empty-on-missing rule. An empty result has nothing for Strategy to build on, similar to the zero-pages extraction failure named but left open in D7.
+Decision: If Research returns a fully empty result, treat it as a failure and retry, using the existing per-step retry logic, at most 3 times. If it's still empty after 3 attempts, stop the pipeline rather than passing an empty result to Strategy.
+Why: An empty result reaching Strategy would give it nothing to reason from, which risks Strategy inventing content to fill a report structure that expects six sections. Retrying gives the extraction or the model a few more chances in case the emptiness was one bad run rather than a genuinely thin prospect. Stopping after 3 failures avoids silently returning a fabricated-looking report.
+Alternatives:
+
+Pass the empty result forward anyway — rejected: this is the exact failure mode named in D7 and left open, now confirmed with a real case.
+Stop immediately without retry — rejected: doesn't distinguish a transient failure from a genuinely thin prospect.
+
+
+#D14
+Context: Failure 1 — ICP.Type was a free string and was regularly inferred as B2B or B2C without the text stating an audience.
+Decision: ICP.Type changed to a fixed set of four values, B2B, B2C, Both, Unknown, enforced by schema, paired with a prompt rule requiring the audience to be explicitly stated, not implied, before assigning anything other than Unknown.
+Why: A prompt rule alone stopped guessing on missing-audience cases but didn't stop the model inventing new labels outside the four values (Freelance Business) for cases where an audience was stated but oddly worded. The schema enforces the closed set regardless of prompt behavior.
+Status: Confirmed correct on clear B2B, clear B2C, and clearly ambiguous inputs across repeated runs. One case, business-oriented language phrased unusually ("freelance businesses"), showed inconsistent results across 6 runs (B2C, Unknown, B2B, B2B, a validation error, B2C) before further prompt tweaking; closed based on user's testing, though not independently re-verified after the final tweak.
+
+
+#D15
+Context: Failure 2 — contradictory sources (prospect site vs. search results) were merged silently instead of being represented as a conflict.
+Decision: For all fields, the prospect's own website takes priority over external/search evidence when the two conflict. Confirmed correct on location (site: Karachi, search: Lahore, output: Karachi, consistent across runs).
+Why: The company is the authority on its own factual details, and for fields that don't affect the qualification score or the outreach message, a careful conflict-representation mechanism isn't worth the added complexity. Applying one simple rule everywhere is cheaper than deciding case-by-case which fields deserve special handling.
+Alternatives:
+
+Represent conflicts explicitly, keeping both values with a note — considered for fields that matter more, but set aside as unnecessary complexity given the policy is now the site-wins default for everything.
+
+
+#D16
+Context: Failure 4 (Test 15) — a pain point returned by search_web() was missing from the final Research_result, in every run, regardless of whether a service was provided.
+Decision: Root cause was a code bug, not a prompt or model issue. The code that assembled tool output into the model's input read item["content"], but the tool's actual output used the key page_content. Every tool result silently returned None and was dropped before it ever reached the model.
+Why: The dropped-evidence question needed to be settled by checking what the model actually received, not by tuning prompts, since the cause turned out to be earlier in the pipeline entirely.
+Fix: Corrected the key name in the joining logic so tool content reaches the model as intended.
+
+#D17
+Context: ICP.Needs was built from general reasoning about what a prospect "needs," without evidence that a website can reliably reveal this. The failure-3 case showed a need ("online lead generation") generated from a marketing claim rather than anything the company or a tool actually stated. Real needs, problems, pains, desired results, mostly aren't disclosed by a company about itself and would require sources this system doesn't currently use.
+Decision: Remove Needs from ICP entirely, rather than relabeling it as general market context.
+Why: Unlike Buying_behavior and Objections, which are openly labeled as general and never claimed as prospect-specific, a Needs field left in the schema, even relabeled, would still tempt use as if it were a real finding, and Outreach could state it to a real prospect as if it were known. Keeping it would not make the report more useful, only more likely to contain something ungrounded that damages the user's credibility. Strategy and Outreach must now build the fit argument from the user's service plus what's actually confirmed: CompanyData, Services, and evidence-backed Pain_points.
+
+#D18
+**Date:** 2026-09-30
+**Context:** After the Research agent hardening pass (D12–D17), the original 15 failure cases were re-run. 9 of 15 passed. 6 failed: Tests 4, 5, 8, 10, 14, 15.
+**Decision:** Research agent hardening is closed for now with known, accepted gaps, not fully resolved to zero failures. The specific gaps:
+1. **Evidence quality.** Test 4 (Unsupported Pain Point) showed that a tool-sourced claim can carry a real, checkable URL as evidence while still being a generic market statement ("common small-business problems include...") rather than something specific to the prospect. The current rule checks that evidence exists and is traceable; it does not yet check that the claim itself is about this company rather than the industry in general.
+2. **Undiagnosed failures.** Tests 5, 8, 10, 14, and 15 failed on re-run. Test 10 is a likely regression, since it was confirmed passing before this hardening pass. The others have not been individually diagnosed with input/output pairs the way Tests 4 and 15 (originally) were.
+**Why:** The two highest-risk problems, pain points and other fields being stated as fact without grounding (D12), and tool evidence being silently dropped (D16), are confirmed fixed. The remaining failures affect precision on specific inputs, not the basic trustworthiness of what Research passes downstream. Diagnosing and fixing all 6 now would delay starting on the Strategy agent, which has a confirmed, higher-impact defect (D6) still untouched.
+**Status:** Deferred, not forgotten. Revisit after Strategy agent hardening, or sooner if any of these patterns reappear in Strategy's or Outreach's output in a way that traces back to Research.

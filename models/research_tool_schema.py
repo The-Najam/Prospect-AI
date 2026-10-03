@@ -15,9 +15,9 @@ class Bio_Extractor(BaseModel):
 class Platforms(BaseModel):
     bio_extractor : list[Bio_Extractor]
 
-
+    
 class  SearchWeb(BaseModel):
-    pain_points : list[str]
+    pain_points : list[dict]
     avilable_solutions : list[str]
     satisfied : bool
     resources : list[str]
