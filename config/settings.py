@@ -3,7 +3,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     GROQ_API_KEY : str
-    model:str="grok-4.6"
+    model:str="openai/gpt-oss-120b"
+    DB_USER : str
+    DB_PASSWORD : str
+
 
 
 

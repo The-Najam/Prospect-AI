@@ -143,7 +143,7 @@ def first_llm_call(pages):
         )
         # make a groq call
         chat_completion = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=setting.model,
             messages=[
                 {
                     "role": "system",
@@ -320,7 +320,7 @@ def second_call(pages):
         )
     
         chat_completion = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
+                model=setting.model,
                 messages=[
                     {
                         "role": "system",

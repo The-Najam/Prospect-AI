@@ -140,3 +140,42 @@ The core set directly answers the questions that matter now:
 - Confirmed/inferred label on every item (D3) — rejected for now: heavier schema, and it depends on the model labeling its own guesses honestly.
 - Remove the fields from Research and let Strategy infer them — rejected: moves the guessing into Strategy, which is already the known problem agent (D6).
 - Evidence required for every field — rejected: buying behavior and objections can't be grounded from a company website.
+
+
+
+#D13
+Context: A test input with almost no stated facts (a generic budgeting-app description) caused Research to return a fully empty Research_result, since every field correctly followed the empty-on-missing rule. An empty result has nothing for Strategy to build on, similar to the zero-pages extraction failure named but left open in D7.
+Decision: If Research returns a fully empty result, treat it as a failure and retry, using the existing per-step retry logic, at most 3 times. If it's still empty after 3 attempts, stop the pipeline rather than passing an empty result to Strategy.
+Why: An empty result reaching Strategy would give it nothing to reason from, which risks Strategy inventing content to fill a report structure that expects six sections. Retrying gives the extraction or the model a few more chances in case the emptiness was one bad run rather than a genuinely thin prospect. Stopping after 3 failures avoids silently returning a fabricated-looking report.
+Alternatives:
+
+Pass the empty result forward anyway — rejected: this is the exact failure mode named in D7 and left open, now confirmed with a real case.
+Stop immediately without retry — rejected: doesn't distinguish a transient failure from a genuinely thin prospect.
+
+
+#D14
+Context: Failure 1 — ICP.Type was a free string and was regularly inferred as B2B or B2C without the text stating an audience.
+Decision: ICP.Type changed to a fixed set of four values, B2B, B2C, Both, Unknown, enforced by schema, paired with a prompt rule requiring the audience to be explicitly stated, not implied, before assigning anything other than Unknown.
+Why: A prompt rule alone stopped guessing on missing-audience cases but didn't stop the model inventing new labels outside the four values (Freelance Business) for cases where an audience was stated but oddly worded. The schema enforces the closed set regardless of prompt behavior.
+Status: Confirmed correct on clear B2B, clear B2C, and clearly ambiguous inputs across repeated runs. One case, business-oriented language phrased unusually ("freelance businesses"), showed inconsistent results across 6 runs (B2C, Unknown, B2B, B2B, a validation error, B2C) before further prompt tweaking; closed based on user's testing, though not independently re-verified after the final tweak.
+
+
+#D15
+Context: Failure 2 — contradictory sources (prospect site vs. search results) were merged silently instead of being represented as a conflict.
+Decision: For all fields, the prospect's own website takes priority over external/search evidence when the two conflict. Confirmed correct on location (site: Karachi, search: Lahore, output: Karachi, consistent across runs).
+Why: The company is the authority on its own factual details, and for fields that don't affect the qualification score or the outreach message, a careful conflict-representation mechanism isn't worth the added complexity. Applying one simple rule everywhere is cheaper than deciding case-by-case which fields deserve special handling.
+Alternatives:
+
+Represent conflicts explicitly, keeping both values with a note — considered for fields that matter more, but set aside as unnecessary complexity given the policy is now the site-wins default for everything.
+
+
+#D16
+Context: Failure 4 (Test 15) — a pain point returned by search_web() was missing from the final Research_result, in every run, regardless of whether a service was provided.
+Decision: Root cause was a code bug, not a prompt or model issue. The code that assembled tool output into the model's input read item["content"], but the tool's actual output used the key page_content. Every tool result silently returned None and was dropped before it ever reached the model.
+Why: The dropped-evidence question needed to be settled by checking what the model actually received, not by tuning prompts, since the cause turned out to be earlier in the pipeline entirely.
+Fix: Corrected the key name in the joining logic so tool content reaches the model as intended.
+
+#D17
+Context: ICP.Needs was built from general reasoning about what a prospect "needs," without evidence that a website can reliably reveal this. The failure-3 case showed a need ("online lead generation") generated from a marketing claim rather than anything the company or a tool actually stated. Real needs, problems, pains, desired results, mostly aren't disclosed by a company about itself and would require sources this system doesn't currently use.
+Decision: Remove Needs from ICP entirely, rather than relabeling it as general market context.
+Why: Unlike Buying_behavior and Objections, which are openly labeled as general and never claimed as prospect-specific, a Needs field left in the schema, even relabeled, would still tempt use as if it were a real finding, and Outreach could state it to a real prospect as if it were known. Keeping it would not make the report more useful, only more likely to contain something ungrounded that damages the user's credibility. Strategy and Outreach must now build the fit argument from the user's service plus what's actually confirmed: CompanyData, Services, and evidence-backed Pain_points.

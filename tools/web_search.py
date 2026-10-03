@@ -18,9 +18,7 @@ def search_web(industry):
        "pain_points" : [{"Pain_Point":value, "Evidence":Link}],
        "avilable_solutions" : list[str],
        "satisfied" : bool,
-       "resources" : list[str]
- 
-       
+       "resources" : list[str] 
     }
 
     ## Field Definations ##
@@ -44,7 +42,7 @@ def search_web(industry):
         )
 
         chat_completion = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=setting.model,
             messages=[
                 {
                     "role" : "system",

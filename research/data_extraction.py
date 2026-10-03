@@ -1,10 +1,20 @@
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 import asyncio
+from models.web_extraction_schema import WebExtraction
 from config.logger import logger
 from urllib.parse import urlparse, urljoin, urlsplit, urlunsplit
 from bs4 import BeautifulSoup
 import socket
+import json
 import requests
+
+
+def user_data():
+    user_service = "copywriting"
+    low_risk = "Free Ad copy"
+    proof = "9+ years of experience"
+
+    return user_service, low_risk, proof
 
 
 def input_links():
@@ -163,6 +173,7 @@ async def fetch_all(selected_page_url):
                         f"Failed To Fetch {page_type} Page: {url} — {e}",
                         exc_info=True
                     )
+
 
     return page_content
 
