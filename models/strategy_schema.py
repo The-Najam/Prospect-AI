@@ -9,12 +9,16 @@ class Qualification(str, Enum):
     medium = "medium"
     weak = "weak"
 
+class Fit(str, Enum):
+    strong = "strong"
+    moderate = "moderate"
+    weak = "weak"
+    unclear = "unclear"
+
 
 class Opportunity(BaseModel):
     pain : List[str]
-    fit : str
-    urgency : str
-    Timing : str
+    fit : Fit
     score : int
 
 
