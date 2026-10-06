@@ -195,3 +195,13 @@ Context: Testing Strategy against real Research output showed Pain_points freque
 Decision: Strategy preserves Pain_points from Research unchanged, with no relevance filtering. Relevance is handled only through the Qualification Score's Pain component, not by altering the list itself.
 Why: Research already applies the evidence bar; filtering again in Strategy would discard pain points that are real and verified but not relevant to today's specific service, narrowing the report to one use case and losing information that could matter for a different pitch or a later look at the same prospect.
 Known issue, logged separately: Research's evidence rule (D12, tightened further during the full hardening pass) returns empty Pain_points too often in practice. Needs its own review, revisit before relying on Strategy's pain-based scoring at scale.
+
+
+#D20
+Date: 5-10-2026
+Context: Strategy agent hardening pass. Original STR-01 through STR-19 failures all confirmed fixed. Added input validation, tool-call validation, evidence-bound generation, exact-match preservation checks on proof/low_risk/Pain_points, fail-fast exception handling, logging, and the Pain/Fit-based Qualification Score replacing the original opaque score.
+Decision: Strategy agent hardening closed. Known open items carried forward, not resolved in this pass:
+
+D4, the review-loop orchestration mismatch, is still unfixed. It belongs at the orchestrator level, not inside Strategy, and needs to be addressed when the orchestrator or Outreach is next worked on.
+D19, Research's pain-points-returning-empty issue, is still open. Strategy's scoring and Problem/Desirable-outcome fields depend on Pain_points having content; while that Research-side issue is unresolved, Strategy will often score and report on an empty pain picture.
+Why: All concretely identified Strategy-level failures are fixed and tested. The two remaining items are correctly out of scope for this pass, D4 belongs to the orchestrator, D19 belongs to Research, carrying them forward keeps them visible rather than letting them be mistaken as resolved now that Strategy is closed.

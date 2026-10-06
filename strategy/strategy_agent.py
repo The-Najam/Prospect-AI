@@ -24,7 +24,10 @@ def strategy_input_validation(strategy_input):
 
 # Validation Output After LLM Generation
 def output_validation(result,strategy_input):
-    input_pains = set(strategy_input["opportunties"]["Pain_points"])
+    input_pains = {
+    pain["pain"]
+    for pain in strategy_input["opportunties"]["Pain_points"]
+}
     output_pains = set(result.opportunity.pain)
 
     if input_pains != output_pains:
