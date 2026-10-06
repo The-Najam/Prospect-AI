@@ -7,11 +7,7 @@ from config.logger import logger
 
 
 def missing_info_research(company_data):
-#     company_data = json.dumps({
-#     "CompanyData": CompanyData,
-#     "services": services,
-#     "icp": icp
-# })
+    print("IN TOOL CALLL")
     company_data = json.dumps(company_data)
     prompt = """
     Act as an expert market researcher specializing in prospect and market research.
