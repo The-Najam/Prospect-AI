@@ -6,11 +6,16 @@ from models.workflow_state import state
 from tools.media_info_extraction import extraction
 from tools.web_search import search_web
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from config.settings import setting
 from config.logger import logger
 from groq import Groq
 import json
 
+def log_event(level, event, **context):
+    payload = {"event": event, **context}
+    message = json.dumps(payload, default=str)
+    getattr(logger, level)(message)
 
 def content_conversion(content):
     # extracting and converting Content Object into String
@@ -25,35 +30,117 @@ def content_conversion(content):
         raise ValueError("All Pages is Empty Can't Proceed to Result")
     return pages
 
+def _extract_tool_calls(chat_completion):
+    try:
+        choices = getattr(chat_completion, "choices", None) or []
+        if not choices:
+            return []
+        message = getattr(choices[0], "message", None)
+        return getattr(message, "tool_calls", None) or []
+    except Exception:
+        logger.warning("Unable to extract tool calls from completion", exc_info=True)
+        return []
 
-    
+def _run_async_coroutine(coro):
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    # If a loop is already running (FastAPI, Jupyter, async app), we cannot call
+    # asyncio.run() on the same thread. Run the coroutine in a separate thread
+    # so it gets its own event loop.
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(asyncio.run, coro)
+        return future.result()
+
+
+def _safe_json_loads(raw_arguments):
+    if raw_arguments is None:
+        return {}
+
+    if isinstance(raw_arguments, dict):
+        return raw_arguments
+
+    if not isinstance(raw_arguments, str):
+        logger.warning("Unexpected tool arguments type: %s", type(raw_arguments))
+        return {}
+
+    raw_arguments = raw_arguments.strip()
+    if not raw_arguments:
+        return {}
+
+    try:
+        parsed = json.loads(raw_arguments)
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("Tool arguments JSON is not an object: %s", type(parsed))
+        return {}
+    except (TypeError, ValueError) as exc:
+        logger.warning("Invalid tool arguments JSON: %s", exc)
+        return {}
+
+
 def tool_calling(chat_completion):
     # checking whether LLM call tools
     try:
-        tools_call = chat_completion.choices[0].message.tool_calls
+        tools_call = getattr(chat_completion.choices[0].message, "tool_calls", None) or []
         tool_result = []
+
         for tool in tools_call:
-            if tool.function.name == "Social_Bio_Info":
-                # calling Social Bio Info and Getting tool result
-                logger.info("Social Bio Tool Call  Detected!")
-                arguments = json.loads(tool.function.arguments)
-                social_urls = arguments["social_urls"]
-                additional_info = asyncio.run(extraction(social_urls))
-                tool_result.append(additional_info)
-            
-            elif tool.function.name == "Web_Search":
-                # calling Web Search Tool and Getting Structured Tool Result
-                logger.info("Web Search tool Called")
-                arguments = json.loads(tool.function.arguments)
-                industry = arguments["industry"]
-                if not industry.strip():
-                    logger.warning("Invalid Argument!")
+            function = getattr(tool, "function", None)
+            if function is None:
+                logger.warning("Tool call missing function payload")
+                continue
+
+            tool_name = getattr(function, "name", None)
+            if not tool_name:
+                logger.warning("Tool call missing function name")
+                continue
+
+            arguments = _safe_json_loads(getattr(function, "arguments", None))
+
+            if tool_name == "Social_Bio_Info":
+                logger.info("Social Bio Tool Call Detected!")
+                social_urls = arguments.get("social_urls", [])
+
+                if not isinstance(social_urls, list):
+                    logger.warning("Social_Bio_Info arguments invalid: social_urls must be a list")
                     continue
+
+                clean_urls = [str(url).strip() for url in social_urls if str(url).strip()]
+                if not clean_urls:
+                    logger.warning("Social Bio tool called without valid URLs.")
+                    continue
+
+                additional_info = _run_async_coroutine(extraction(clean_urls))
+                if additional_info is not None:
+                    tool_result.append(additional_info)
+
+            elif tool_name == "Web_Search":
+                logger.info("Web Search tool Called")
+                industry = arguments.get("industry", "")
+
+                if not isinstance(industry, str):
+                    logger.warning("Web_Search arguments invalid: industry must be a string")
+                    continue
+
+                industry = industry.strip()
+                if not industry:
+                    logger.warning("Web_Search called without industry")
+                    continue
+
                 additional_context = search_web(industry)
-                tool_result.append(additional_context)
+                if additional_context is not None:
+                    tool_result.append(additional_context)
+
+            else:
+                logger.warning("Unhandled tool requested: %s", tool_name)
+
         return tool_result
-    # raising an error if tool failed      
-    except Exception as e:
+
+    # raising an error if tool failed
+    except Exception:
         logger.error("Failed To Call Tool", exc_info=True)
         raise
 
@@ -139,7 +226,7 @@ def first_llm_call(pages):
     try:
         # creating a groq Cient
         client = Groq(
-        api_key=setting.GROQ_API_KEY
+        api_key=setting.API_KEY
         )
         # make a groq call
         chat_completion = client.chat.completions.create(
@@ -170,20 +257,53 @@ def first_llm_call(pages):
 
 # Function to check Validate Tool Results
 def tool_validation(additional_context):
-    if additional_context is None: 
+    if additional_context is None:
         logger.info("Tool Result Is None")
         return True
+    # checking if additional context is a list, if not convert it to a list
+    if not isinstance(additional_context, list):
+        additional_context = [additional_context]
 
     for context in additional_context:
-        if isinstance(context, Bio_Extractor):
-                for result in context:
-                    if result.bio is None or not result.bio.strip():
-                        logger.info("Bio Is Missing In Tool Result")
-                        return True
-        if isinstance(context, SearchWeb):
-            if not context.pain_points:
+        if context is None:
+            continue
+        # checking if context is a dictionary, if so, check for pain_points and bio fields
+        if isinstance(context, dict):
+            # get pain_points and bio fields from context, if they are missing or empty, return True
+            pain_points = context.get("pain_points") or context.get("Pain_points") or []
+            if isinstance(pain_points, list) and not pain_points:
                 logger.info("Pain Points Are Missing In Tool Result")
                 return True
+
+            bio = context.get("bio") or context.get("bios")
+            if isinstance(bio, list):
+                for item in bio:
+                    value = getattr(item, "bio", None)
+                    if value is None and isinstance(item, dict):
+                        value = item.get("bio")
+                    if value is None or not str(value).strip():
+                        logger.info("Bio Is Missing In Tool Result")
+                        return True
+            continue
+        # checking if context is is Bio_Extractor Class or not
+        if isinstance(context, Bio_Extractor):
+            try:
+                for result in context:
+                    # checking if bio field is missing or empty, if so return True
+                    bio_value = getattr(result, "bio", None)
+                    if bio_value is None or not str(bio_value).strip():
+                        logger.info("Bio Is Missing In Tool Result")
+                        return True
+            except TypeError:
+                logger.warning("Bio_Extractor result is not iterable")
+                return True
+        # checking if context is SearchWeb Class or not
+        if isinstance(context, SearchWeb):
+            pain_points = getattr(context, "pain_points", None) or []
+            if not pain_points:
+                logger.info("Pain Points Are Missing In Tool Result")
+                return True
+
     return False
 
 
@@ -260,6 +380,7 @@ def second_call(pages):
 
     
     ## RULES ##
+    - YOU MUST RETURN THE OUTPUT IN REQUIRED FORMAT
     1. Extract information from the provided website content and any tool results included in the input. Tool results may provide additional evidence that is not present on the website. When multiple sources provide conflicting information about the same field, prioritize information from the prospect's own website over information obtained from web search or other external sources.
     2. Do not invent, assume, or hallucinate information.
     3. If information is not available:
@@ -303,8 +424,7 @@ def second_call(pages):
     | --------------- | -------------------------------------------------- |
     | Company Data    | **Explicit only**                                  |
     | Services        | **Explicit only**                                  |
-    | ICP             | **Explicit only** |
-    | Needs           | **Explicit + evidence-based inference**            |
+    | ICP             | **Explicit only**                                  |
     | Buying Behavior | **Explicit + cautious inference**                  |
     | Objections      | **Explicit + cautious inference**                  |
     | Pain Points     | **Explicit + evidence-based inference**            |
@@ -316,7 +436,7 @@ def second_call(pages):
     try:
         # calling Groq Client
         client = Groq(
-            api_key=setting.GROQ_API_KEY
+            api_key=setting.API_KEY
         )
     
         chat_completion = client.chat.completions.create(
@@ -345,8 +465,10 @@ def second_call(pages):
         state.total_token_used += chat_completion.usage.total_tokens
         state.input_tokens += chat_completion.usage.prompt_tokens
         state.output_tokens += chat_completion.usage.completion_tokens
+        print(chat_completion)
         
         response = chat_completion.choices[0].message.content
+        print("RESEARCH RESULT : ",response)
         # Validating the Output of Research Result
         research_result = Research_result(**json.loads(response))
         return research_result
@@ -373,52 +495,43 @@ def validate_research_output(research_result):
     return True
     
 
-def research_agent_workflow(content,userservice):
+def research_agent_workflow(content, userservice):
     pages = content_conversion(content)
     chat_completions = first_llm_call(pages)
+    tool_calls = _extract_tool_calls(chat_completions)
 
-    if chat_completions.choices[0].message.tool_calls: 
+    evidence_payload = pages
+
+    if tool_calls:
+        logger.info("Tool calls detected. Preparing additional context.")
         try:
             additional_context = tool_calling(chat_completions)
-            fallback = tool_validation(additional_context)
-            pages = f"<prospect_evidence>\nUser_Service : {userservice},\n\n Prospect Website Content : {pages}, \n\n Additional_Context : {additional_context}\n</prospect_evidence>"
-        except Exception as e:
-            logger.error("Failed To Validate Tool Result", exc_info=True)
 
-        try:
-            if fallback:
-                final_response = second_call(pages)
-                if validate_research_output(final_response) is True:
-                    print("RESEARCH RESULT : ",final_response)
-                    return final_response        
-        except Exception as e:
-            logger.error("Research generation and validation failed: %s", exc_info=True)
-            raise 
+            if additional_context:
+                evidence_payload = (
+                    "<prospect_evidence>\n"
+                    f"User_Service : {userservice},\n\n"
+                    f"Prospect Website Content : {pages}, \n\n"
+                    f"Additional_Context : {additional_context}\n"
+                    "</prospect_evidence>"
+                )
+            else:
+                logger.warning("No valid additional context returned by tools. Continuing with website content only.")
+        except Exception:
+            logger.error("Tool execution failed. Continuing with website content only.", exc_info=True)
 
-        try:
-            research_result = second_call(pages)
-            print("RESEARCH RESULT : ",research_result)
-            validate_research_output(research_result)
-            logger.info("Research completed successfully")
-            return research_result
-        except Exception as e:
-            logger.error("Research output validation failed: %s", exc_info=True)
-            raise 
     else:
-        # continue to second call if tool not called
-        try:
-            logger.info("Tool Call Not Detected!")
-            research_result = second_call(pages)
-            print("RESEARCH RESULT : ",research_result)
-            return research_result
-        except Exception as e:
-            logger.error("Research Workflow Can't Be completed")
+        logger.info("No tools requested. Continuing with website content only.")
 
-        
-        
-
-
-
+    try:
+        research_result = second_call(evidence_payload)
+        validate_research_output(research_result)
+        logger.info("Research completed successfully")
+        print("RESEARCH RESULT : ", research_result)
+        return research_result
+    except Exception:
+        logger.error("Research workflow failed", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     user_service, low_risk, proof = user_data()
