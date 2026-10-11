@@ -15,8 +15,13 @@ def missing_info_research(company_data):
     ## OUTPUT ##
     Return the output only in JSON format.
     {
-        additional_info : list[str]
-    
+        "additional_info": [
+            {
+                "url": "https://example.com",
+                "page_type": "page name or type",
+                "content": "exact content you extract from website"
+            }
+        ]
     }
 
     ## RULES ##
@@ -30,12 +35,10 @@ def missing_info_research(company_data):
     
     """
 
-    client = Groq(
-        api_key=setting.GROQ_API_KEY
-    )
+    client = Groq(api_key=setting.GROQ_API_KEY)
 
     chat_completions = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
+        model=setting.model,
         messages=[
             {
                 "role" : "system",
@@ -67,8 +70,6 @@ def missing_info_research(company_data):
     
 
     return response
-
-
 
 
 
