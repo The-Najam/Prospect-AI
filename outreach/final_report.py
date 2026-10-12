@@ -1,69 +1,88 @@
-from research.research_analyzer import analyzer, clean_html, fetch_all
-from strategy.strategy_agent import strategy_agent
-from outreach.ai_copywriter import outreach_message
+from research.research_analyzer import research_agent_workflow, clean_html, fetch_all, user_data, url_classification,fetch_homepage,normalize_deduplicate_links
+from strategy.strategy_agent import strategy_agent, strategy_agent_workflow
+from outreach.ai_copywriter import outreach_agent_workflow, outreach_message
 import asyncio
 import json
 
-def report(research_result,strategy_result,outreach):
+def _field(obj, name, default=None):
+    if isinstance(obj, dict):
+        return obj.get(name, default)
+    return getattr(obj, name, default)
+
+
+def _dump(obj):
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return obj
+
+
+def report(research_result, strategy_result, outreach):
+    research = _dump(research_result)
+    company = _field(research, "company", {}) or {}
+    offer = _field(strategy_result, "offer", {}) or {}
+    angle = _field(strategy_result, "angle", {}) or {}
+    reasoning = _field(strategy_result, "reasoning", {}) or {}
+
     return {
-        "Company_Overview" : {
-            "name" : research_result.CompanyData.name,
-            "about" : research_result.CompanyData.about,
-            "location" : research_result.CompanyData.location,
-            "company_size" : research_result.CompanyData.Company_size,
+        "Company_Overview": {
+            "name": _field(company, "name"),
+            "about": _field(company, "about"),
+            "industry": _field(company, "industry"),
+            "locations": _field(company, "locations", []),
+            "contact_paths": _field(company, "contact_paths", []),
         },
-        "Business_Analysis" : {
-            "services" : research_result.services,
-            "Type" : research_result.icp.Type,
-            "Location" : research_result.icp.location,
-            "Needs" : research_result.icp.Needs,
-            "Buying_Behaviour" : research_result.icp.Buying_behavior,
-            "Objections" : research_result.icp.Objections, 
+        "Research": {
+            "services": _field(research, "services", []),
+            "business_type": _field(research, "business_type"),
+            "people": _field(research, "people", []),
         },
-        "Opportunities":{
-            "Pain_Points" : research_result.opportunties.Pain_points,
-            "fit" : strategy_result.opportunity.fit,
-            "urgency": strategy_result.opportunity.urgency,
-            "Timing" :  strategy_result.opportunity.Timing,
+        "Strategy": {
+            "qualification": _field(strategy_result, "qualification"),
+            "fit": _field(strategy_result, "fit"),
+            "fit_reasons": _field(strategy_result, "fit_reasons", []),
+            "reasoning": _field(reasoning, "reason", []),
         },
-        "Qualification":{
-            "Qualification" : strategy_result.qualification,
-            "Score" : strategy_result.opportunity.score,
+        "Recommended_Offer": {
+            "problem": _field(offer, "problem"),
+            "desirable_outcome": _field(offer, "desirable_outcome"),
+            "proof": _field(offer, "proof"),
+            "low_risk": _field(offer, "low_risk"),
+            "value": _field(offer, "value"),
         },
-        "Recommended Offer": {
-            "problem" : strategy_result.offer.problem,
-            "Desirable_outcome": strategy_result.offer.desirable_outcome,
-            "proof" : strategy_result.offer.proof,
-            "low_risk" : strategy_result.offer.low_risk,
-            "Value" : strategy_result.offer.value,
+        "Outreach_Angle": {
+            "hooks": _field(angle, "hooks", []),
+            "angle": _field(angle, "angle"),
+            "cta": _field(angle, "cta"),
         },
-
-        "Outreach_Package" : {
-            "channel": outreach.channel,
-            "message" : outreach.outreach_msg
-        }
-
+        "Outreach_Package": {
+            "channel": _field(outreach, "channel"),
+            "message": _field(outreach, "outreach_msg"),
+        },
     }
 
 
 
+
 if __name__ == "__main__":
-    raw_data = asyncio.run(main())
-    clean_content = clean_html(raw_data)
-    research_result = analyzer(clean_content)
-    result = research_result.model_dump()
-    service = "web designing"
-    proof = "6+ years of experience"
-    low_risk = "Free Demo"
-    result['user_service'] = service
-    result['user_proof'] = proof
-    result['Low-risk-mechanism'] = low_risk
-    strategy_input = json.dumps(result)
-    strategy_result = strategy_agent(strategy_input)
+    user_service, low_risk, proof = user_data()
+    url = "https://www.vistadentalimplants.com/"
+
+    page_content, links  = asyncio.run(fetch_homepage(url))
+    urls = normalize_deduplicate_links(links,url)
+    selected_pages_url = url_classification(urls)
+    selected_pages_url.append({"url":url, "page_type":"Home"})
+    page_content = asyncio.run(fetch_all(selected_pages_url))
+    content = clean_html(page_content)
+    content = content.model_dump()
+    research_result = research_agent_workflow(content,user_service)
+    research_result.user_service = user_service
+    research_result.user_proof = proof
+    research_result.user_low_risk = low_risk
+    strategy_input = research_result.model_dump()
+    strategy_result = strategy_agent_workflow(strategy_input)
     result_strategy = strategy_result.model_dump()
-    result_strategy['channel'] = "instagram"
-    outreach_input = json.dumps(result_strategy)
-    outreach_result = outreach_message(outreach_input)
+    result_strategy["channel"] = "instagram"
+    result_strategy["user_service"] = user_service
+    outreach_result = outreach_agent_workflow(result_strategy)
     Final_report = report(research_result, strategy_result, outreach_result)
     print(Final_report)
-    
