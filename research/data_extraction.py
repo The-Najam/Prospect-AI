@@ -23,7 +23,7 @@ def input_links():
     if url.startswith(("http://","https://")):
             domain = urlparse(url).netloc
             try:
-                socket.gethostbyname(domain)
+                print(socket.gethostbyname(domain))
                 logger.info("Valid Reachable Domain")
             except socket.gaierror:
                 logger.error("Domain Not Exist")

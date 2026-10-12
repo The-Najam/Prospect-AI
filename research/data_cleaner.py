@@ -2,23 +2,34 @@ from research.data_extraction import fetch_all, normalize_deduplicate_links, inp
 import asyncio
 from bs4 import BeautifulSoup
 from models.web_extraction_schema import WebExtraction
+from config.logger import logger
 
 
 def clean_html(page_content):
     content = []
-    "Cleaning Content Started"
+
     for page in page_content:
-        url = page['url']
-        html = page['content']
-        page_type = page['page_type']
+        html = page.get("content")
+        if not isinstance(html, (str, bytes)) or not html.strip():
+            logger.warning("Skipping page with missing or empty HTML: %s", page.get("url"))
+            continue
+
+        url = page["url"]
+        page_type = page["page_type"]
         soup = BeautifulSoup(html, "lxml")
+
         for tag in soup(["header", "nav", "footer", "script", "style"]):
             tag.decompose()
-        cont = soup.get_text(" ", strip=True)
-        content.append({"url":url, "page_type":page_type, "content":cont})
 
+        text = soup.get_text(" ", strip=True)
+        if text:
+            content.append({"url": url, "page_type": page_type, "content": text})
+
+    if not content:
+        raise ValueError("No usable HTML content was fetched")
 
     clean_web_result = WebExtraction(pages=content)
+    print("Cleaning Content Completed", clean_web_result)
     print(type(clean_web_result))
     return clean_web_result
 
