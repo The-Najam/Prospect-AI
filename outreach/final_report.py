@@ -62,6 +62,7 @@ def report(research_result, strategy_result, outreach):
 
 
 
+
 if __name__ == "__main__":
     user_service, low_risk, proof = user_data()
     url = "https://www.vistadentalimplants.com/"
