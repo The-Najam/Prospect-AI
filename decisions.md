@@ -205,3 +205,39 @@ Decision: Strategy agent hardening closed. Known open items carried forward, not
 D4, the review-loop orchestration mismatch, is still unfixed. It belongs at the orchestrator level, not inside Strategy, and needs to be addressed when the orchestrator or Outreach is next worked on.
 D19, Research's pain-points-returning-empty issue, is still open. Strategy's scoring and Problem/Desirable-outcome fields depend on Pain_points having content; while that Research-side issue is unresolved, Strategy will often score and report on an empty pain picture.
 Why: All concretely identified Strategy-level failures are fixed and tested. The two remaining items are correctly out of scope for this pass, D4 belongs to the orchestrator, D19 belongs to Research, carrying them forward keeps them visible rather than letting them be mistaken as resolved now that Strategy is closed.
+
+
+#D21
+Context: Outreach's job is to rewrite and strengthen offer, proof, low-risk, and CTA using copywriting judgment, not reproduce them verbatim, unlike Strategy's fixed fields. This makes exact-match validation wrong here, the real risk is invented claims or deliverables not present in any input field, which isn't cheaply checkable in code, a keyword list only catches already-seen inventions and misses anything new.
+Decision: No automated semantic check added for Outreach's invention risk right now. Relying on test coverage to catch this, same approach as Research's remaining known gaps, not a second LLM-based validation call.
+Why: A keyword-based check gives false confidence without real protection. An LLM-based check would genuinely catch it but adds cost, latency, and a new non-determinism source, the same tradeoff already declined for Strategy.
+Status: Open, revisit if testing or real use shows invented claims reaching a user, at which point an LLM-based check becomes worth the cost it was declined for here.
+
+
+
+#D22
+Context: Outreach fallback behavior across its failure points.
+Decision:
+
+API-level failures (timeout, rate limit, connection error) — retry.
+Schema validation failure on structured output — already implemented.
+refine_offer runs but doesn't meaningfully strengthen the offer — proceed and write the message from the original, unrefined offer rather than retrying or failing the run.
+Offer from Strategy is empty or unusable — already routed through input validation, same pattern as D13.
+Why: Only the API-level failure is transient and worth retrying; everything else either has a defined fallback already, or, in #3's case, has real content to work with even if weaker than ideal, so proceeding is better than discarding a usable run.
+
+#D23
+**Date:** 
+**Context:** After hardening all three agents, 10 end-to-end runs on one real URL all failed. Pain points were missing or dropped between agents, and validation rules stopped runs that could still have produced a message.
+**Decision:** Remove pain points and the 1-10 score. Research keeps only facts backed by a verified quote from the page. Strategy outputs `fit` (strong/moderate/weak/insufficient_evidence) and `qualification` (strong/medium/low). The report ends with a `status` field, so thin data produces `insufficient_evidence` instead of a crash.
+**Why:** Pain points can only be found by guessing or through real conversations with the prospect, not from website content, so they can't be grounded in the page. The old chain depended on a field the source can't supply. `fit` carries the same information the score did, in a coarser format.
+**Alternatives:**
+- Keep pain points as optional and compute the 1-10 score from Fit and Pain (D12, D19) — rejected: the pain input stays unreliable, so the score would rest on it.
+**Supersedes:** D2 (score format), D12, D19. `offer.problem` stays in the report, labeled as a guess ("may be struggling with...").
+
+
+#D24
+**Date:** 2026-10-12
+**Context:** The same input run 3 times gave fit `insufficient_evidence`, `moderate`, `insufficient_evidence`, with qualification following (low, medium, low). The research was identical each time. The prompt doesn't say whether a plausible business type with no stated need counts as `moderate` or `insufficient_evidence`.
+**Decision:** Fit consistency is deferred to the eval pass. Orchestrator hardening comes first.
+**Why:** The pipeline now completes end to end, and fit stability is easier to fix once there's an eval set to measure it against.
+**Known issue:** Fit is unstable on the same input. Fix by writing one rule for what earns each fit value, and by lowering Strategy's temperature (0 to 0.2). Then check that 5 runs return the same value 5 times.
