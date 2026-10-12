@@ -7,41 +7,146 @@ from config.logger import logger
 
 def offerrefine(strategy_result):
 
-    prompt = """
-    Act as an expert Offer Strategist. Specialize in creating the killer and irresistable offer.
+    prompt = """ Act as an expert Offer Refiner. Your job is to improve the wording, clarity, framing, and persuasive strength
+    of the offer using ONLY the information provided in the Strategy Result.
+
+    You are NOT an offer creator.
+    You must preserve the factual and semantic boundaries of the supplied strategy.
+
+    ## CORE PRINCIPLE ##
+
+    Preserve meaning, improve expression.
+    You may:
+    - Rewrite wording.
+    - Improve clarity.
+    - Improve conversational flow.
+    - Strengthen framing.
+    - Make the offer more concise.
+    - Make the value proposition more compelling.
+    - Reorganize information when useful.
+    - Naturally rephrase the proof and low-risk mechanism.
+    - Choose which supported elements to emphasize.
+
+    You must NOT ADD:
+    -  new facts.
+    -  new claims.
+    -  new services.
+    -  new deliverables.
+    -  new mechanisms.
+    -  new features.
+    -  guarantees.
+    -  audits, trials, pilots, consultations, or implementation steps.
+    -  numbers, percentages, timeframes, or metrics.
+    -  customer results.
+    -  business outcomes not explicitly supported.
+    -  sender credentials or experience.
+    - Infer unstated problems or consequences.
+    - Turn possibilities into facts.
+    - Expand the scope of the existing offer.
+
+    ## INPUT ##
+    The user will provide a Strategy Result containing:
+    - pain
+    - problem
+    - desirable_outcome
+    - proof
+    - low_risk
+    - value
+    Use only these supplied facts and claims.
+
+    ## FIELD-SPECIFIC RULES ##
+
+    ### problem
+
+    You may rewrite the problem for clarity or stronger framing.
+    You must preserve:
+    - What problem is being described.
+    - The certainty level of the problem.
+    - Its factual scope.
+    Do not introduce a more specific problem unless it is explicitly supported.
+
+    ### desirable_outcome
+    You may make the desired outcome clearer or more compelling.
+    You must not introduce:
+    - New business outcomes.
+    - New metrics.
+    - New performance claims.
+    - New customer outcomes.
+
+    ### proof
+    You may naturally rephrase the supplied proof.
+    You must preserve the underlying claim.
+
+    Do not add:
+    - Customer counts.
+    - Case studies.
+    - Percentages.
+    - Results.
+    - Credentials.
+    - Experience.
+    - Testimonials.
+
+    ### low_risk
+    You may improve the wording of the supplied low-risk mechanism.
+    You must preserve:
+    - The mechanism.
+    - The scope.
+    - The level of commitment.
+    Do not introduce:
+    - Free work.
+    - Trials.
+    - Audits.
+    - Pilots.
+    - Guarantees.
+    - New deliverables.
+    - New implementation steps.
+
+    ### value
+    You may make the supplied value proposition clearer and more persuasive.
+    Do not introduce additional benefits or outcomes.
+
+    ## SEMANTIC BOUNDARY RULE ##
+    A rewritten statement is valid only if it means substantially the same thing
+    as the original statement.
+    Ask internally:
+    "Did I merely express the supplied idea better,
+    or did I add something that was not there?"
+    If the rewrite adds information, remove that information.
+
+    When the supplied information is weak or incomplete, do NOT fill the gaps
+    with assumptions or general industry knowledge.
+
+    Weak input must produce a constrained offer, not an invented offer.
+
+    ## EVIDENCE RULE ##
+
+    General knowledge is NOT evidence.
+    A statement being generally true in the industry does not make it valid
+    for this prospect.
+    Only information explicitly supplied in the Strategy Result may be used.
 
     ## OUTPUT ##
-
-    Return the Output in JSON format below
+    Return the output in JSON format:
 
     {
-        "refine_offer" : str
+        "refine_offer": "string"
     }
 
+    The refine_offer should contain the refined offer using only supported
+    information from the Strategy Result.
 
-    ## RULES ##
-    1. Use the provided pain, urgency , problem, outcome, proof, low_risk, service to create the offer.
-    2. You must create the offer based on avialable data
-    3. Do not invent, assume, or hallucinate information.
-    4. Include only information supported by the strategy.
-    5. Do not invent services, deliverables, mechanisms, features, guarantees, audits, pilots, trials, implementation steps, or other components that the user did not provide.
-    6. Do not expand a low-risk offer beyond the mechanisms explicitly provided by the user.
-    7. If no evidence supports a meaningful offer, return the schema-defined empty value.
-    8. Never promise or state unsupported outcomes such as increased revenue, more leads, higher conversion, reduced costs, measurable ROI, saved time, or guaranteed results.
-    9. An outcome may be mentioned only when it is explicitly supported by the strategy result or explicitly provided by the user.
-    10. You must use the proof and low_risk provided by strategy result and must be preserved exactly as provided
+    If the supplied strategy does not contain enough information to produce
+    a meaningful refined offer, return the schema-defined empty value.
 
-
+    Never compensate for missing information by inventing information.
     """
     print(type(strategy_result))
 
 
-    client = Groq(
-        api_key=setting.GROQ_API_KEY
-    )
+    client = Groq(api_key=setting.GROQ_API_KEY)
 
     chat_completions = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
+        model=setting.model,
         messages=[
             {
                 "role" : "system",
@@ -69,7 +174,6 @@ def offerrefine(strategy_result):
     data = json.loads(response)
     result = offer_refine(**data)
     print(result)
-
     logger.info("OFFER REFINED SUCCESSFULLY!")
 
     return(result)
@@ -77,55 +181,50 @@ def offerrefine(strategy_result):
 
 
 if __name__ == "__main__":
-    data =  {
-     "qualification": "weak",
-     "opportunity": {
-       "pain": [
-         "They have some problems",
-         "Sales could be better",
-         "Things are not always efficient"
-       ],
-       "fit": "Maybe a good fit because they are a company.",
-       "urgency": "Not sure, probably medium.",
-       "Timing": "Maybe sometime soon.",
-       "score": 35
-     },
-     "offer": {
-       "problem": "They have business problems and need help improving things.",
-       "desirable_outcome": "They want to grow their business and get better results.",
-       "proof": "We have experience helping companies.",
-       "low_risk": "We can try it and see what happens.",
-       "value": "It could save time and make more money."
-     },
-     "reason": {
-       "reason": [
-         "They seem like they might need this.",
-         "Their business could probably improve.",
-         "There may be an opportunity here."
-       ]
-     },
-     "angle": {
-       "hooks": [
-         "Want to improve your business?",
-         "We can help you grow.",
-         "Are you looking for better results?"
-       ],
-       "angle": "Offer them a solution that can help their business.",
-       "cta": "Let me know if you are interested."
-     },
-     "channel": "email"
-   }
-
+    data =      result = {
+  "qualification": "strong",
+  "opportunity": {
+    "pain": [
+      "The company recently launched an online ordering system.",
+      "Customers can now place orders through the company's website."
+    ],
+    "fit": "strong",
+    "score": 8
+  },
+  "offer": {
+    "problem": "The online ordering experience may need improvement.",
+    "desirable_outcome": "A clearer and easier online ordering experience.",
+    "proof": "We help businesses improve online customer experiences.",
+    "low_risk": "Start with a small engagement focused on the current ordering experience.",
+    "value": "A simpler online ordering experience."
+  },
+  "reason": {
+    "reason": [
+      "The company has recently introduced online ordering.",
+      "The new ordering experience creates a relevant opportunity for improvement."
+    ]
+  },
+  "angle": {
+    "hooks": [
+      "New online ordering system",
+      "Online customer experience"
+    ],
+    "angle": "Improve the online ordering experience after the recent launch.",
+    "cta": "Open to hearing how?"
+  },
+  "channel": "linkedin"
+}
+  
 
 
     result = {
         "pain" : data["opportunity"]["pain"],
-        "urgency" : data["opportunity"]["urgency"],
         "problem" : data["offer"]["problem"],
         "desirable_outcome" : data["offer"]["desirable_outcome"],
         "proof" : data["offer"]["proof"],
         "low_risk" : data["offer"]["low_risk"],
-        "value" : data["offer"]["value"]
+        "value" : data["offer"]["value"],
+        "service": "UX design and improvement for online ordering experiences",
     }
 
     strategy_result = offer_tool_input(**result)

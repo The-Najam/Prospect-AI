@@ -1,25 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel
-from typing import List
-
-
-
-class Qualification(str, Enum):
-    strong = "strong"
-    medium = "medium"
-    weak = "weak"
-
-class Fit(str, Enum):
-    strong = "strong"
-    moderate = "moderate"
-    weak = "weak"
-    unclear = "unclear"
-
-
-class Opportunity(BaseModel):
-    pain : List[str]
-    fit : Fit
-    score : int
+from typing import Literal, List
 
 
 class Offer(BaseModel):
@@ -41,11 +22,14 @@ class Outreach_Angle(BaseModel):
 
 
 class Strategy_result(BaseModel):
-    qualification : Qualification
-    opportunity : Opportunity
-    offer : Offer
-    reason : Reasoning
-    angle : Outreach_Angle
-    channel : str = ""
+    qualification: Literal["strong", "medium", "low"]   # overall: is this prospect worth contacting?
+    fit: Literal["strong", "moderate", "weak", "insufficient_evidence"]  # how well they match the user's service
+    fit_reasons: List[str]
+    offer: Offer
+    angle: Outreach_Angle
+    reasoning: Reasoning
+    channel: str = ""    # provided by user
+    service: str         # provided by user
+    proof: str           # provided by user
 
 

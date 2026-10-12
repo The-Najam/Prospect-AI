@@ -16,20 +16,35 @@ class Platforms(BaseModel):
     bio_extractor : list[Bio_Extractor]
 
     
-class  SearchWeb(BaseModel):
-    pain_points : list[dict]
-    avilable_solutions : list[str]
-    satisfied : bool
-    resources : list[str]
+class PainPoint(BaseModel):
+    Pain_Point: str
+    Evidence: str          # link; code checks it is one of the search result URLs
+
+class WebSearchResult(BaseModel):
+    pain_points: List[PainPoint] = []
+    available_solutions: List[str] = []
+    satisfied: bool | None = None     # None = not enough evidence to say
+    resources: List[str] = []  
+
+
+class ExtraPage(BaseModel):
+    url: str
+    page_type: str
+    content: str
 
 
 class additional_research(BaseModel):
-    additional_info : list[str]
+    additional_info : list[ExtraPage] = Field(
+        description="List of additional research findings, each with a URL, page type, and content.")
+
+
+class AdditionalResearchInput(BaseModel):
+    url: str
+    missing_fields: list[str]
+    already_fetched: list[str]
 
 
 class offer_tool_input(BaseModel):
-    pain : List[str]
-    urgency : str
     problem : str
     desirable_outcome : str
     proof : str

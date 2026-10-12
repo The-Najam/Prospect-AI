@@ -1,4 +1,4 @@
-from models.research_tool_schema import SearchWeb
+from models.research_tool_schema import WebSearchResult
 from groq import Groq
 from config.settings import setting
 import json
@@ -7,28 +7,30 @@ from models.workflow_state import state
 
 
 
-def search_web(industry):
+def search_web(industry, user_service):
     system_prompt = """
     ## ROLE ##
     Act as an expert in Market Research. You specialize in researching prospect market very deeply based on evidence.
 
     ## Output ##
     Return the result as valid JSON matching the structure below.
-    { 
-       "pain_points" : [{"Pain_Point":value, "Evidence":Link}],
-       "avilable_solutions" : list[str],
-       "satisfied" : bool,
-       "resources" : list[str] 
+    {
+    "pain_points": [
+        {"Pain_Point": "string", "Evidence": "https://example.com"}
+    ],
+    "available_solutions": ["string"],
+    "satisfied": true,
+    "resources": ["https://example.com"]
     }
 
     ## Field Definations ##
-    - pain_points : You must provide the list of pain points the industry mention is facing based on evidence.
+    - pain_points : You must provide the list of pain points the industry mention is facing based on evidence also which match the user service.
         For Each Pain Point You must Give the citation link for that pain point
-    - avilable_solutions : You must list down what avilable_solutions industry using to solve their pain points
-    - satified : This field tells the solutions they're using are they satisfied with it, if industry tells that they happy with current solutions then return True else False
+    - available_solutions : You must list down what available_solutions user service can solve the industry's pain points
+    - satisfied : This field tells the solutions they're using are they satisfied with it, if industry tells that they happy with current solutions then return True else False
     - resources : list down the public forums name you used to do the research
     ## RULES ##
-    - You must do the research based on the industry mentioned.
+    - You must do the research based on the industry and user service mentioned.
     - You must use only public forums or credible articles to do the research.
     - Do not include irrelevant information.
     - Do not invent, assume, or hallucinate information.
@@ -37,12 +39,10 @@ def search_web(industry):
 
     """
     try:
-        client = Groq(
-            api_key= setting.GROQ_API_KEY
-        )
+        client = Groq(api_key=setting.GROQ_API_KEY_V2)
 
         chat_completion = client.chat.completions.create(
-            model=setting.model,
+            model="openai/gpt-oss-120b",
             messages=[
                 {
                     "role" : "system",
@@ -50,15 +50,15 @@ def search_web(industry):
                 },
                 {
                     "role" : "user",
-                    "content" : industry
+                    "content" : f"Industry: {industry}\nUser Service: {user_service}"
                 }
             ],
             response_format={
                 "type" : "json_object",
                 "json_object" : {
-                    "name" : "SearchWeb",
+                    "name" : "WebSearchResult",
                     "strict" : True,
-                    "schema" : SearchWeb.model_json_schema()
+                    "schema" : WebSearchResult.model_json_schema()
                 }
             }
         )
@@ -66,9 +66,9 @@ def search_web(industry):
         state.input_tokens += chat_completion.usage.prompt_tokens
         state.output_tokens += chat_completion.usage.completion_tokens
         response = chat_completion.choices[0].message.content
-        result = SearchWeb(**json.loads(response))
-        print(result)
-    
+        print(response)
+        result = WebSearchResult(**json.loads(response))
+
         return result
 
     except Exception as e:
@@ -78,6 +78,7 @@ def search_web(industry):
 
 if __name__ == "__main__":
     industry = "web designing"
+    user_service = "web development"
 
-    search_web(industry)
+    search_web(industry, user_service)
 
