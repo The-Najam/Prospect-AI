@@ -45,7 +45,6 @@ class AdditionalResearchInput(BaseModel):
 
 
 class offer_tool_input(BaseModel):
-    pain : List[str]
     problem : str
     desirable_outcome : str
     proof : str
