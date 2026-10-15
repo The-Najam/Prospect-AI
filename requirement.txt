@@ -1,3 +1,13 @@
-crawl4ai
-pydantic
-psycopg
+beautifulsoup4==4.15.0
+crawl4ai==0.9.2
+groq==1.7.0
+langgraph==1.2.15
+langsmith==0.14.8
+protobuf==7.36.2
+psycopg==3.3.6
+pydantic==2.14.1
+pydantic_settings==2.16.0
+redis==8.1.0
+Requests==2.34.2
+rq==2.12.0
+playwright==1.62.0
