@@ -1,6 +1,7 @@
 from research.research_analyzer import research_agent_workflow, clean_html, fetch_all, user_data, url_classification,fetch_homepage,normalize_deduplicate_links
 from strategy.strategy_agent import strategy_agent, strategy_agent_workflow
 from outreach.ai_copywriter import outreach_agent_workflow, outreach_message
+from models.workflow_state import WorkflowState
 import asyncio
 import json
 
@@ -16,14 +17,78 @@ def _dump(obj):
     return obj
 
 
-def report(research_result, strategy_result, outreach):
-    research = _dump(research_result)
+def research_report(state:WorkflowState):
+    research = _dump(state['research_result'])
     company = _field(research, "company", {}) or {}
-    offer = _field(strategy_result, "offer", {}) or {}
-    angle = _field(strategy_result, "angle", {}) or {}
-    reasoning = _field(strategy_result, "reasoning", {}) or {}
+    report_data = {
+        "Company_Overview": {
+            "name": _field(company, "name"),
+            "about": _field(company, "about"),
+            "industry": _field(company, "industry"),
+            "locations": _field(company, "locations", []),
+            "contact_paths": _field(company, "contact_paths", []),
+        },
+        "Research": {
+            "services": _field(research, "services", []),
+            "business_type": _field(research, "business_type"),
+            "people": _field(research, "people", []),
+        }
+    }
+    return {"final_report": report_data}
 
-    return {
+def partial_report(state:WorkflowState):
+    research = _dump(state['research_result'])
+    company = _field(research, "company", {}) or {}
+    offer = _field(state['strategy_result'], "offer", {}) or {}
+    angle = _field(state['strategy_result'], "angle", {}) or {}
+    reasoning = _field(state['strategy_result'], "reasoning", {}) or {}
+    strategy_result = state['strategy_result']
+
+    report_data = {
+        "Company_Overview": {
+            "name": _field(company, "name"),
+            "about": _field(company, "about"),
+            "industry": _field(company, "industry"),
+            "locations": _field(company, "locations", []),
+            "contact_paths": _field(company, "contact_paths", []),
+        },
+        "Research": {
+            "services": _field(research, "services", []),
+            "business_type": _field(research, "business_type"),
+            "people": _field(research, "people", []),
+        },
+        "Strategy": {
+            "qualification": _field(strategy_result, "qualification"),
+            "fit": _field(strategy_result, "fit"),
+            "fit_reasons": _field(strategy_result, "fit_reasons", []),
+            "reasoning": _field(reasoning, "reason", []),
+        },
+        "Recommended_Offer": {
+            "problem": _field(offer, "problem"),
+            "desirable_outcome": _field(offer, "desirable_outcome"),
+            "proof": _field(offer, "proof"),
+            "low_risk": _field(offer, "low_risk"),
+            "value": _field(offer, "value"),
+        },
+        "Outreach_Angle": {
+            "hooks": _field(angle, "hooks", []),
+            "angle": _field(angle, "angle"),
+            "cta": _field(angle, "cta"),
+        },
+    }
+    
+    return {"final_report": report_data}
+
+def report(state:WorkflowState):
+    research = _dump(state['research_result'])
+    company = _field(research, "company", {}) or {}
+    offer = _field(state['strategy_result'], "offer", {}) or {}
+    angle = _field(state['strategy_result'], "angle", {}) or {}
+    reasoning = _field(state['strategy_result'], "reasoning", {}) or {}
+    strategy_result = state['strategy_result']
+    outreach = state['outreach_result']
+
+    report_data = {
         "Company_Overview": {
             "name": _field(company, "name"),
             "about": _field(company, "about"),
@@ -59,6 +124,7 @@ def report(research_result, strategy_result, outreach):
             "message": _field(outreach, "outreach_msg"),
         },
     }
+    return {"final_report": report_data}
 
 
 

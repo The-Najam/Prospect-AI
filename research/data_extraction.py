@@ -5,6 +5,8 @@ from config.logger import logger
 from urllib.parse import urlparse, urljoin, urlsplit, urlunsplit
 from bs4 import BeautifulSoup
 import socket
+from models.workflow_state import WorkflowState
+from langsmith import traceable
 import json
 import requests
 
@@ -17,8 +19,10 @@ def user_data():
     return user_service, low_risk, proof
 
 
-def input_links():
+def input_links(state:WorkflowState):
     url = input("Paste the url of Prospect Website : ")
+
+    state['prospect_url'] = url
 
     if url.startswith(("http://","https://")):
             domain = urlparse(url).netloc
@@ -34,14 +38,15 @@ def input_links():
                 logger.info("Server is reachable")
                 logger.info("Status:", response.status_code)
 
-                return url
+                return {"prospect_url":url}
             except requests.exceptions.RequestException as e:
                 logger.error("Server could not be reached", e)
     else:
         logger.error("Invalid Url")
 
 
-async def fetch_homepage(url):
+async def fetch_homepage(state:WorkflowState):
+    url = state['prospect_url']
     # creating crawler for home page
     async with AsyncWebCrawler() as crawler:
         content = await crawler.arun(url)
@@ -55,14 +60,17 @@ async def fetch_homepage(url):
         # extracting Links from the homepage 
         soup = BeautifulSoup(content.html, "lxml")
         links = [a.get("href") for a in soup.find_all("a", href=True)]
+        state['page_content'] = page_content
+        state['links'] = links
+        print("PRE CONTENT: ",state['page_content'])
 
-        return page_content, links
+        return {"page_content":page_content, "links": links}
     
 
 
-def normalize_deduplicate_links(links, url):
-    homepage_url = url
-    absolute_links = [urljoin(homepage_url, link) for link in links]
+def normalize_deduplicate_links(state:WorkflowState):
+    homepage_url = state['prospect_url']
+    absolute_links = [urljoin(homepage_url, link) for link in state['links']]
     normalize_links = []
 
     # normalizing links into consisting format
@@ -85,7 +93,7 @@ def normalize_deduplicate_links(links, url):
 
     # Performing deduplication
     unique_urls = set(normalize_links) 
-    main_url_parts = urlsplit(url)
+    main_url_parts = urlsplit(state['prospect_url'])
     company_hostname = main_url_parts.hostname
 
 
@@ -100,52 +108,65 @@ def normalize_deduplicate_links(links, url):
         else:
             unique_urls.remove(link)
 
-    return unique_urls
+
+    return {"links":unique_urls}
 
 
 
-def url_classification(unique_urls):
+def url_classification(state: WorkflowState):
     page_keywords = {
-    "about": ["about", "company", "who-we-are", "our-story"],
-    "pricing": ["pricing", "plans", "packages", "rates"],
-    "services": ["service", "services", "solutions", "offerings"],
-    "contact": ["contact", "contact-us", "get-in-touch", "reach-us"],
-    "portfolio": ["portfolio", "projects", "work", "case-studies", "case-study"],
-    "testimonials": ["testimonial", "testimonials", "reviews", "customer-reviews"],
-    "product": ["product", "products", "platform", "software"],
-    "team": ["team", "our-team", "leadership", "people", "management"],
-}
+        "about": ["about", "company", "who-we-are", "our-story"],
+        "pricing": ["pricing", "plans", "packages", "rates"],
+        "services": ["service", "services", "solutions", "offerings"],
+        "contact": ["contact", "contact-us", "get-in-touch", "reach-us"],
+        "portfolio": ["portfolio", "projects", "work", "case-studies", "case-study"],
+        "testimonials": ["testimonial", "testimonials", "reviews", "customer-reviews"],
+        "product": ["product", "products", "platform", "software"],
+        "team": ["team", "our-team", "leadership", "people", "management"],
+    }
+
     selected_page_type = []
+    max_pages = 4
 
-    # mapping urls with page_keywords
-    for ur in unique_urls:
-        parts = urlsplit(ur)
-        path = parts.path
-        segments = parts.path.split("/")
+    links = state.get("links", [])
+    print("LINKS:", links)
+
+    for url in links:
+        parts = urlsplit(url)
+        segments = parts.path.strip("/").lower().split("/")
+
         for segment in segments:
-            if segment:
-                for page_type, keywords in page_keywords.items():
-                    if segment.lower() in keywords:
-                        if len(selected_page_type) < 4:
-                            selected_page_type.append({"url":ur, "page_type":page_type})
-                        else:
-                            break
-                    
-            else:
-                continue
+            for page_type, keywords in page_keywords.items():
+                if segment in keywords:
+                    selected_page_type.append({
+                        "url": url,
+                        "page_type": page_type
+                    })
+                    break
 
+            # Stop once we have selected 4 pages
+            if len(selected_page_type) >= max_pages:
+                break
 
-    return selected_page_type
+        if len(selected_page_type) >= max_pages:
+            break
 
-    
-async def fetch_all(selected_page_url):
+    selected_page_type.append({"url":state["prospect_url"], "page_type":"Home"})
+    state["page_content"] = selected_page_type
+
+    print("SELECTED PAGE CONTENT:", selected_page_type)
+    return {"page_content": selected_page_type}
+
+@traceable(run_type="tool", name="crawl_page")
+async def fetch_all(state:WorkflowState):
     page_content = []
     config = CrawlerRunConfig(
     page_timeout=15_000
 )
+    print(state['page_content'])
     # fetching important urls content
     async with AsyncWebCrawler() as crawler:
-        for page in selected_page_url:
+        for page in state['page_content']:
             url = page["url"]
             page_type = page["page_type"]
             if url.lower().endswith((
@@ -174,8 +195,12 @@ async def fetch_all(selected_page_url):
                         exc_info=True
                     )
 
+    print("CONTENT",page_content)
+    
+    return {"page_content":page_content}
 
-    return page_content
+
+
 
 
     

@@ -1,5 +1,5 @@
 import psycopg
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
 
 
 def create_dbconnection():

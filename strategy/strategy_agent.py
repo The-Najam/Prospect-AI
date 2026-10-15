@@ -5,7 +5,8 @@ from research.data_cleaner import clean_html
 from research.data_extraction import fetch_all,user_data,normalize_deduplicate_links,url_classification,fetch_homepage
 from research.research_analyzer import research_agent_workflow
 from tools.additional_research import missing_info_research
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
+from langsmith import traceable, get_current_run_tree
 from groq import Groq
 import json
 import asyncio
@@ -236,7 +237,7 @@ def strategy_input_validation(strategy_input):
         logger.error("company.industry.value is missing")
 
     if not company_data.get("locations"):
-        raise ValueError("company.locations is missing")
+        logger.error("company.locations is missing")
 
     if not company_data.get("contact_paths"):
         logger.warning("company.contact_paths is missing")
@@ -247,7 +248,7 @@ def strategy_input_validation(strategy_input):
         raise ValueError("services is missing or empty")
 
     business_type = strategy_input.get("business_type")
-    if business_type in (None, "unclear"):
+    if business_type in (None,""):
         raise ValueError("business_type is missing or unclear")
 
     people = strategy_input.get("people") or []
@@ -417,6 +418,14 @@ def strategy_tool_calling(chat_completions):
         raise
 
 
+@traceable(
+    name="strategy_llm_call",
+    run_type="llm",
+    metadata={
+        "ls_provider": "groq",
+        "ls_model_name": setting.model,
+    },
+)
 # Second LLM Call To Generate Strategy Output
 def strategy_agent(strategy_input):
     print(strategy_input)
@@ -601,9 +610,7 @@ def strategy_agent(strategy_input):
                 request_name="strategy_agent",
             )
 
-            state.total_token_used += chat_completion.usage.total_tokens
-            state.input_tokens += chat_completion.usage.prompt_tokens
-            state.output_tokens += chat_completion.usage.completion_tokens
+
             response = chat_completion.choices[0].message.content
             print(chat_completion)
 
@@ -612,6 +619,14 @@ def strategy_agent(strategy_input):
                     response, "strategy response"
                 )
                 result = Strategy_result(**parsed_response)
+                run = get_current_run_tree()
+                run.set(
+                    usage_metadata={
+                        "input_tokens": chat_completion.usage.prompt_tokens,
+                        "output_tokens": chat_completion.usage.completion_tokens,
+                        "total_tokens": chat_completion.usage.total_tokens,
+                    }
+                )
                 break
             except (ValueError, ValidationError) as exc:
                 if attempt == 0:
@@ -634,12 +649,28 @@ def strategy_agent(strategy_input):
 
 
 # Main Workflow of Strategy Agent
-def strategy_agent_workflow(strategy_input):
+def strategy_agent_workflow(state:WorkflowState):
+    strategy_attempts = state.get("strategy_attempts",0) + 1
+    logger.info(f"STRATEGY ATTEMPT : {strategy_attempts}")
+    user_service,low_risk,proof=user_data()
+
     try:
+        print("STRATEGY INPUT TYPE : ",type(state['research_result']))
+        print("STRATEGY INPUT : ", state['research_result'])
+        research_result = state["research_result"]
+        strategy_input = (
+            research_result.model_dump(mode="json")
+            if hasattr(research_result, "model_dump")
+            else research_result
+        )
+        strategy_input['service'] = user_service
+        strategy_input['low_risk'] = low_risk
+        strategy_input['proof'] = proof
+
         strategy_input_validation(strategy_input)
     except Exception:
         logger.exception("Input validation failed")
-        raise
+        return {"strategy_attempts":strategy_attempts, "strategy_status":"retry"}
 
     missing_fields = collect_missing_fields(strategy_input)
 
@@ -666,6 +697,8 @@ def strategy_agent_workflow(strategy_input):
                 logger.info("Additional research merged into strategy input")
             except Exception:
                 logger.exception("Additional research failed for missing fields: %s", missing_fields)
+                return {"strategy_attempts":strategy_attempts, "strategy_status":"retry"}   
+
 
     try:
         result = strategy_agent(strategy_input)
@@ -709,10 +742,16 @@ def strategy_agent_workflow(strategy_input):
         output_validation(result, strategy_input)
         log_event("info", "strategy.workflow.success", user_service=strategy_input.get("user_service"))
         print("Strategy Result:", result)
-        return result
-    except Exception:
-        logger.exception("Failed to generate strategy")
-        raise
+        
+        return {
+            "strategy_status": "success",
+            "strategy_result": result.model_dump(mode="json"),
+            "strategy_attempts": strategy_attempts,
+        }
+    except Exception as e:
+        logger.exception("Failed to generate strategy {e}, Retrying Again")
+        return {"strategy_attempts":strategy_attempts, "strategy_status":"retry"}
+        
 
 if __name__ == "__main__":
     # user_service, low_risk, proof = user_data()

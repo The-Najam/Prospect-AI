@@ -2,9 +2,10 @@ from research.data_cleaner import clean_html
 from research.data_extraction import fetch_all, fetch_homepage, normalize_deduplicate_links, url_classification, user_data
 from models.research_schemas import ResearchResult
 from models.research_tool_schema import Bio_Extractor, WebSearchResult
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
 from tools.media_info_extraction import extraction
 from tools.web_search import search_web
+from langsmith import traceable, get_current_run_tree
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from config.settings import setting
@@ -20,6 +21,7 @@ def log_event(level, event, **context):
 
 
 def content_conversion(content):
+
     max_total_chars = 8000
     pages = []
     remaining = max_total_chars
@@ -165,9 +167,17 @@ def tool_calling(chat_completion,user_service):
         logger.error("Failed To Call Tool", exc_info=True)
         raise
 
-
+@traceable(
+    name="research_first_llm_call",
+    run_type="llm",
+    metadata={
+        "ls_provider": "groq",
+        "ls_model_name": setting.model,
+    },
+)
 # First LLM Call To Check whether tool Needed or Not
 def first_llm_call(pages):
+
     # System Prompt To Pass On LLM
     system_prompt = """
     ## Role ##
@@ -242,12 +252,15 @@ def first_llm_call(pages):
             ],
             tools=tools
         )
-        # tracking tokens cost and usage
-        state.total_token_used += chat_completion.usage.total_tokens
-        state.input_tokens += chat_completion.usage.prompt_tokens
-        state.output_tokens += chat_completion.usage.completion_tokens
-
-        print("TOTAL TOKENS USE AT RESEARCH STAGE : ", state.total_token_used)
+        run = get_current_run_tree()
+        run.set(
+        usage_metadata={
+            "input_tokens": chat_completion.usage.prompt_tokens,
+            "output_tokens": chat_completion.usage.completion_tokens,
+            "total_tokens": chat_completion.usage.total_tokens,
+        }
+    )
+   
         return chat_completion
     except Exception as e:
         logger.error("Failed To Detect Tools Calls", exc_info=True)
@@ -284,7 +297,7 @@ def tool_validation(additional_context):
                         return True
             continue
 
-        if isinstance(context, (Bio_Extractor, WebSearchResult, SearchWeb)):
+        if isinstance(context, (Bio_Extractor, WebSearchResult)):
             pain_points = getattr(context, "pain_points", None) or []
             if not pain_points:
                 logger.info("Pain Points Are Missing In Tool Result")
@@ -298,8 +311,16 @@ def tool_validation(additional_context):
 
     return False
 
-
+@traceable(
+    name="research_second_llm_call",
+    run_type="llm",
+    metadata={
+        "ls_provider": "groq",
+        "ls_model_name": setting.model,
+    },
+)
 def second_call(pages):
+    print("RESEARCH INPUT: ",pages)
     system_prompt = """
     ## ROLE ##
     You are an expert Prospect Research Analyst and Strategic Intelligence Specialist who specializes in analyzing raw website content to extract structured, evidence-based business insights.
@@ -393,14 +414,14 @@ def second_call(pages):
     - people: name and role must both appear in the same quote. Max 10.
     - contact_paths: copy emails, phone numbers, and URLs exactly as written.
     Never create or guess one.
-    - business_type: "b2b", "b2c", or "both" only if the text says who the company
+    - business_type:  "b2b", "b2c", or "both" only if the text says who the company
     serves. Otherwise "unclear".
     - Classify ICP Type using only explicit evidence about who the customer/buyer is.
         - B2B: The website explicitly identifies businesses or organizations as customers.
         - B2C: The website explicitly identifies individual consumers/persons as customers.
         - Both: The website explicitly identifies both businesses/organizations and
         individual consumers as customers.
-        - Unknown: The website does not explicitly establish the customer/buyer type.
+        - unclear: The website does not explicitly establish the customer/buyer type.
         
         Do not infer ICP Type from:
         - the customer's profession or occupation
@@ -410,8 +431,6 @@ def second_call(pages):
         - who might reasonably use the product/service
         If the customer/buyer type is ambiguous, return "Unknown".
         use Both when the page shows services for two different audiences, and don’t choose from a single testimonial.
-
-
 
 
     """
@@ -436,14 +455,21 @@ def second_call(pages):
             )
         print(json.dumps(ResearchResult.model_json_schema(), indent=2))
         # Tracking tokens cost and usage of Second LLM Call
-        state.total_token_used += chat_completion.usage.total_tokens
-        state.input_tokens += chat_completion.usage.prompt_tokens
-        state.output_tokens += chat_completion.usage.completion_tokens
-        print(chat_completion)
+    
+        run = get_current_run_tree()
+        run.set(
+                usage_metadata={
+                    "input_tokens": chat_completion.usage.prompt_tokens,
+                    "output_tokens": chat_completion.usage.completion_tokens,
+                    "total_tokens": chat_completion.usage.total_tokens,
+                }
+            )
         
         response = chat_completion.choices[0].message.content
-        research_result = ResearchResult(**json.loads(response))
+        print(type(response))
+        research_result = response
         print("RESEARCH RESULT : ", research_result)
+
         return research_result
     except Exception as e:
         logger.error("Research Can't be done", exc_info=True)
@@ -472,7 +498,16 @@ def validate_research_output(research_result):
     return True
 
 
-def research_agent_workflow(content, userservice):
+def research_agent_workflow(state:WorkflowState):
+    research_attempts = state.get("research_attempts", 0) + 1
+    logger.info(f"RESEARCH ATTEMPT : {research_attempts}")
+    user_service,low_risk,proof = user_data()
+    cleaned_content = state["cleaned_content"]
+    content = (
+        cleaned_content.model_dump(mode="json")
+        if hasattr(cleaned_content, "model_dump")
+        else cleaned_content
+    )
     pages = content_conversion(content)
     chat_completions = first_llm_call(pages)
     tool_calls = _extract_tool_calls(chat_completions)
@@ -482,12 +517,12 @@ def research_agent_workflow(content, userservice):
     if tool_calls:
         logger.info("Tool calls detected. Preparing additional context.")
         try:
-            additional_context = tool_calling(chat_completions, userservice)
+            additional_context = tool_calling(chat_completions, user_service)
 
             if additional_context:
                 evidence_payload = (
                     "<prospect_evidence>\n"
-                    f"User_Service : {userservice},\n\n"
+                    f"User_Service : {user_service},\n\n"
                     f"Prospect Website Content : {pages}, \n\n"
                     f"Additional_Context : {additional_context}\n"
                     "</prospect_evidence>"
@@ -500,15 +535,147 @@ def research_agent_workflow(content, userservice):
     else:
         logger.info("No tools requested. Continuing with website content only.")
 
+   
     try:
+        evidence_payload = (
+            "<prospect_evidence>\n"
+            f"User_Service : {user_service},\n\n"
+            f"Prospect Website Content : {pages}, \n\n"
+            "</prospect_evidence>"
+        )
         research_result = second_call(evidence_payload)
+        # result = """{
+        # "company": {
+        #     "name": {
+        #     "value": "BrightPath Digital",
+        #     "evidence": {
+        #         "quote": "BrightPath Digital helps businesses grow through digital marketing and web solutions."
+        #     }
+        #     },
+        #     "about": {
+        #     "quote": "We help small and medium-sized businesses build their online presence through modern websites, SEO, and digital marketing strategies."
+        #     },
+        #     "industry": {
+        #     "value": "Digital Marketing and Web Development",
+        #     "evidence": {
+        #         "quote": "Our services include website development, search engine optimization, and online advertising."
+        #     }
+        #     },
+        #     "locations": [
+        #     {
+        #         "kind": "headquarters",
+        #         "value": "Karachi, Pakistan",
+        #         "evidence": {
+        #         "quote": "Our headquarters are located in Karachi, Pakistan."
+        #         }
+        #     },
+        #     {
+        #         "kind": "service_area",
+        #         "value": "Pakistan, United Arab Emirates, and United Kingdom",
+        #         "evidence": {
+        #         "quote": "We work with clients across Pakistan, the UAE, and the UK."
+        #         }
+        #     }
+        #     ],
+        #     "contact_paths": [
+        #     {
+        #         "channel": "email",
+        #         "value": "hello@example.com",
+        #         "evidence": {
+        #         "quote": "For business inquiries, email hello@example.com."
+        #         }
+        #     },
+        #     {
+        #         "channel": "phone",
+        #         "value": "+92-300-1234567",
+        #         "evidence": {
+        #         "quote": "Call our team at +92-300-1234567 to discuss your project."
+        #         }
+        #     },
+        #     {
+        #         "channel": "form",
+        #         "value": "https://example.com/contact",
+        #         "evidence": {
+        #         "quote": "Submit your project requirements using our contact form."
+        #         }
+        #     },
+        #     {
+        #         "channel": "social",
+        #         "value": "https://www.linkedin.com/company/example",
+        #         "evidence": {
+        #         "quote": "Connect with our team on LinkedIn for company updates."
+        #         }
+        #     }
+        #     ]
+        # },
+        # "services": [
+        #     {
+        #     "name": "Website Design and Development",
+        #     "evidence": {
+        #         "quote": "We design and develop responsive websites tailored to each client's business needs."
+        #     }
+        #     },
+        #     {
+        #     "name": "Search Engine Optimization",
+        #     "evidence": {
+        #         "quote": "Our SEO services help businesses improve their visibility in search engine results."
+        #     }
+        #     },
+        #     {
+        #     "name": "Social Media Marketing",
+        #     "evidence": {
+        #         "quote": "We manage social media campaigns to help brands reach and engage their target audiences."
+        #     }
+        #     },
+        #     {
+        #     "name": "Pay-Per-Click Advertising",
+        #     "evidence": {
+        #         "quote": "Our team creates and manages paid advertising campaigns across search and social platforms."
+        #     }
+        #     }
+        # ],
+        # "business_type": "both",
+        # "business_type_evidence": {
+        #     "quote": "We partner with businesses while also offering website packages for individuals and independent professionals."
+        # },
+        # "people": [
+        #     {
+        #     "name": "Ayesha Khan",
+        #     "role": "Founder and Managing Director",
+        #     "evidence": {
+        #         "quote": "Ayesha Khan founded BrightPath Digital and leads the company's strategy and operations."
+        #     }
+        #     },
+        #     {
+        #     "name": "Hamza Ali",
+        #     "role": "Head of Digital Marketing",
+        #     "evidence": {
+        #         "quote": "Hamza Ali leads the digital marketing team and oversees SEO and advertising campaigns."
+        #     }
+        #     }
+        # ],
+        # "user_service": "SEO services for small and medium-sized businesses",
+        # "user_proof": "The company explicitly offers search engine optimization and digital marketing services for business clients.",
+        # "user_low_risk": "Offer a complimentary SEO audit with actionable recommendations before proposing a paid engagement."
+        # }"""
+        research_result = ResearchResult(**json.loads(research_result))
+        research_result.user_service = user_service
+        research_result.user_proof = proof
+        research_result.user_low_risk = low_risk
+        print("TYPE OF RESEARCH RESULT : ", type(research_result))
         validate_research_output(research_result)
         logger.info("Research completed successfully")
         print("RESEARCH RESULT : ", research_result)
-        return research_result
+    
+        
+        return {
+            "research_status": "success",
+            "research_result": research_result.model_dump(mode="json"),
+            "research_attempts": research_attempts,
+        }
     except Exception:
         logger.error("Research workflow failed", exc_info=True)
-        raise
+        return {"research_status":"retry","research_attempts":research_attempts}
 
 
 if __name__ == "__main__":

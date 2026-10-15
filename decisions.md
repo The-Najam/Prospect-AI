@@ -241,3 +241,14 @@ Why: Only the API-level failure is transient and worth retrying; everything else
 **Decision:** Fit consistency is deferred to the eval pass. Orchestrator hardening comes first.
 **Why:** The pipeline now completes end to end, and fit stability is easier to fix once there's an eval set to measure it against.
 **Known issue:** Fit is unstable on the same input. Fix by writing one rule for what earns each fit value, and by lowering Strategy's temperature (0 to 0.2). Then check that 5 runs return the same value 5 times.
+
+#D25
+**Date:** 2026-10-14
+**Context:** The orchestrator needs checkpointing so a failed run can resume at an agent boundary instead of re-running finished agents. Re-running costs tokens and risks the Groq rate limit again. Expected load is 10-20 concurrent users, the agents are I/O-bound, and Postgres is already in the stack.
+**Decision:** Use `AsyncPostgresSaver` (langgraph-checkpoint-postgres). Checkpoint at agent boundaries only (after Research, after Strategy), not inside an agent.
+**Why:** Async fits concurrent users and I/O-bound agents. Postgres is already running, so it adds no new infrastructure, and checkpoints survive restarts. It's the only option in the comparison meant for production.
+**Alternatives:**
+- InMemorySaver: rejected, loses everything on restart. Fine for tests only.
+- SqliteSaver / AsyncSqliteSaver: rejected, adds a second database when Postgres exists, and async SQLite isn't recommended for production.
+- PostgresSaver (sync): rejected, blocks under concurrent load.
+**Open:** This assumes the orchestrator moves to LangGraph, which isn't decided yet. If it stays raw Python, this decision doesn't apply and checkpointing needs a separate design. Package names and async support were taken from a table and not checked against the current LangGraph docs. Verify before building.

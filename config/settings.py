@@ -5,11 +5,14 @@ class Settings(BaseSettings):
     GROQ_API_KEY : str
     GROQ_API_KEY_V2 : str
     GEMINI_API_KEY : str
-    GEMINI_MODEL : str = "models/gemini-3.6-flash"
-    GEMINI_MODEL_2 : str = "models/gemini-3.1-flash-lite"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_MODEL_2: str = "gemini-3.1-flash-lite"
     model:str="openai/gpt-oss-120b"
     DB_USER : str
     DB_PASSWORD : str
+    LANGSMITH_TRACING : bool
+    LANGSMITH_API_KEY : str
+    LANGSMITH_PROJECT : str
 
 
     model_config = SettingsConfigDict(

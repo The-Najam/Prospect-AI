@@ -5,9 +5,10 @@ from research.research_analyzer import research_agent_workflow, clean_html, fetc
 from strategy.strategy_agent import strategy_agent_workflow
 from models.outreach_schema import Outreach_Message,Email_Outreach
 from models.research_tool_schema import offer_tool_input
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
 from tools.strategy_review import offerrefine
 from google import genai
+from langsmith import traceable, get_current_run_tree
 from google.genai import types
 import asyncio
 import json
@@ -239,7 +240,14 @@ def offer_tool_calling(chat_completion):
     refined_offer = offerrefine(offer_input)
     return refined_offer
 
-
+@traceable(
+    name="outreach_tool_llm_call",
+    run_type="llm",
+    metadata={
+        "ls_provider": "groq",
+        "ls_model_name": setting.model,
+    },
+)
 def outreach_toolcall_check(outreach_input):
     system_prompt = """
     ## ROLE ##
@@ -348,18 +356,29 @@ def outreach_toolcall_check(outreach_input):
         tool_choice="auto",
     )
 
-    state.total_token_used += chat_completion.usage.total_tokens
-    state.input_tokens += chat_completion.usage.prompt_tokens
-    state.output_tokens += chat_completion.usage.completion_tokens
-
     log_llm_usage(
         "outreach_toolcall_check",
         chat_completion,
         time.perf_counter() - start,
     )
+    run = get_current_run_tree()
+    run.set(
+        usage_metadata={
+            "input_tokens": chat_completion.usage.prompt_tokens,
+            "output_tokens": chat_completion.usage.completion_tokens,
+            "total_tokens": chat_completion.usage.total_tokens,
+        }
+    )
     return chat_completion
 
-
+@traceable(
+    name="message_generation_llm_call",
+    run_type="llm",
+    metadata={
+        "ls_provider": "google",
+        "ls_model_name": setting.GEMINI_MODEL,
+    },
+)
 def outreach_message(outreach_input):
     input_data = json.loads(outreach_input) if isinstance(outreach_input, str) else outreach_input
     channel = input_data.get("channel", "").strip().lower()
@@ -610,6 +629,15 @@ def outreach_message(outreach_input):
                 ),
             )
             logger.info("Gemini outreach response received")
+            run = get_current_run_tree()
+            usage = getattr(response, "usage_metadata", None)
+            run.set(
+                usage_metadata={
+                    "input_tokens": usage.prompt_token_count,
+                    "output_tokens": usage.candidates_token_count,
+                    "total_tokens": usage.total_token_count,
+                }
+            )
             break
         except ServerError:
             if attempt == 2:
@@ -617,14 +645,12 @@ def outreach_message(outreach_input):
                 raise
             time.sleep((2 ** attempt) + random.uniform(0, 1))
 
-    usage = getattr(response, "usage_metadata", None)
+    
     if usage:
         input_tokens = getattr(usage, "prompt_token_count", 0) or 0
         output_tokens = getattr(usage, "candidates_token_count", 0) or 0
         total_tokens = getattr(usage, "total_token_count", None)
-        state.input_tokens += input_tokens
-        state.output_tokens += output_tokens
-        state.total_token_used += total_tokens or input_tokens + output_tokens
+     
 
     response_text = response.text
     if not response_text or not response_text.strip():
@@ -647,13 +673,24 @@ def outreach_message(outreach_input):
         output_tokens=output_tokens if usage else 0,
         total_tokens=total_tokens if usage and total_tokens is not None else 0,
     )
+    
     return outreach_result
 
 
 
-def outreach_agent_workflow(result):
+def outreach_agent_workflow(state:WorkflowState):
     _log_event("info", "outreach_workflow.started")
+    outreach_attempts = state.get("outreach_attempts", 0) + 1
+    logger.info("OUTREACH ATTEMPT : %s", outreach_attempts)
+
     try:
+        strategy_result = state["strategy_result"]
+        result = (
+            strategy_result.model_dump(mode="json")
+            if hasattr(strategy_result, "model_dump")
+            else strategy_result
+        )
+        result['user_service'] = "SEO services for small and medium-sized businesses"
         logger.info("Starting Outreach Input and Business Rules Validation")
         outreach_input_validation(result)
         validate_outreach_business_rules(result)
@@ -664,14 +701,22 @@ def outreach_agent_workflow(result):
 
         if not fit_reasons or not hooks:
             _log_event("info", "outreach_workflow.no_recommendation")
-            return Outreach_Message(
-                channel=result["channel"],
-                outreach_msg={
-                    "subject_line": "",
-                    "message": "",
-                    "cta": "",
-                },
+            empty_outreach = (
+                Email_Outreach(
+                    channel=result["channel"],
+                    outreach_msg={"subject_line": "", "body": "", "cta": ""},
+                )
+                if result["channel"] == "email"
+                else Outreach_Message(
+                    channel=result["channel"],
+                    outreach_msg={"message": ""},
+                )
             )
+            return {
+                "outreach_status": "success",
+                "outreach_result": empty_outreach.model_dump(mode="json"),
+                "outreach_attempts": outreach_attempts,
+            }
 
         outreach_input = json.dumps(result)
     except Exception as exc:
@@ -681,7 +726,10 @@ def outreach_agent_workflow(result):
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        raise
+        return {
+            "outreach_status": "retry",
+            "outreach_attempts": outreach_attempts,
+        }
 
     try:
         chat_completion = outreach_toolcall_check(outreach_input)
@@ -692,7 +740,10 @@ def outreach_agent_workflow(result):
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        raise
+        return {
+            "outreach_status": "retry",
+            "outreach_attempts": outreach_attempts,
+        }
 
     tool_calls = _safe_tool_calls(chat_completion)
     if tool_calls:
@@ -717,7 +768,11 @@ def outreach_agent_workflow(result):
         outreach_result = outreach_message(outreach_input)
         _log_event("info", "outreach_workflow.completed")
         print("Outreach Result:", outreach_result)
-        return outreach_result
+        return {
+            "outreach_status": "success",
+            "outreach_result": outreach_result.model_dump(mode="json"),
+            "outreach_attempts": outreach_attempts,
+        }
     except Exception as exc:
         _log_event(
             "error",
@@ -725,7 +780,10 @@ def outreach_agent_workflow(result):
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        raise
+        return {
+            "outreach_status": "retry",
+            "outreach_attempts": outreach_attempts,
+        }
 
 
 

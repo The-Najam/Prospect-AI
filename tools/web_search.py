@@ -3,10 +3,17 @@ from groq import Groq
 from config.settings import setting
 import json
 from config.logger import logger
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
+from langsmith import traceable,get_current_run_tree
 
-
-
+@traceable(
+    name="web_search_tool_call",
+    run_type="tool",
+    metadata={
+        "ls_provider": "groq",
+        "ls_model_name": setting.model,
+    },
+)
 def search_web(industry, user_service):
     system_prompt = """
     ## ROLE ##
@@ -62,13 +69,18 @@ def search_web(industry, user_service):
                 }
             }
         )
-        state.total_token_used += chat_completion.usage.total_tokens
-        state.input_tokens += chat_completion.usage.prompt_tokens
-        state.output_tokens += chat_completion.usage.completion_tokens
+      
         response = chat_completion.choices[0].message.content
         print(response)
         result = WebSearchResult(**json.loads(response))
-
+        run = get_current_run_tree()
+        run.set(
+            usage_metadata={
+                "input_tokens": chat_completion.usage.prompt_tokens,
+                "output_tokens": chat_completion.usage.completion_tokens,
+                "total_tokens": chat_completion.usage.total_tokens,
+            }
+        )
         return result
 
     except Exception as e:

@@ -2,9 +2,19 @@ from groq import Groq
 from config.settings import setting
 from models.research_tool_schema import offer_refine, offer_tool_input
 import json
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
 from config.logger import logger
+from langsmith import traceable, get_current_run_tree
 
+
+@traceable(
+    name="offer_refine_tool_call",
+    run_type="tool",
+    metadata={
+        "ls_provider": "groq",
+        "ls_model_name": setting.model,
+    },
+)
 def offerrefine(strategy_result):
 
     prompt = """ Act as an expert Offer Refiner. Your job is to improve the wording, clarity, framing, and persuasive strength
@@ -166,13 +176,18 @@ def offerrefine(strategy_result):
             }
         }
     )
-
-    state.total_token_used += chat_completions.usage.total_tokens
-    state.input_tokens += chat_completions.usage.prompt_tokens
-    state.output_tokens += chat_completions.usage.completion_tokens
     response = chat_completions.choices[0].message.content
     data = json.loads(response)
     result = offer_refine(**data)
+    run = get_current_run_tree()
+    run.set(
+        usage_metadata={
+            "input_tokens": chat_completions.usage.prompt_tokens,
+            "output_tokens": chat_completions.usage.completion_tokens,
+            "total_tokens": chat_completions.usage.total_tokens,
+        }
+    )
+
     print(result)
     logger.info("OFFER REFINED SUCCESSFULLY!")
 
