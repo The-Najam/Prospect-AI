@@ -1,19 +1,28 @@
-from pydantic import BaseModel
+from typing import TypedDict, Annotated
+import operator
 
-class State(BaseModel):
-    Data_Extraction : list | None = None
-    User_Service : str = ""
-    User_Proof : str = ""
-    User_Low_Risk : str = ""
-    channel : str = ""
-    current_step : str = ""
-    status : str = ""
-    research_result : dict | None = None
-    strategy_result : dict | None = None
-    outreach_result : dict | None = None
-    Final_report : dict | None = None
-    total_token_used : int = 0
-    input_tokens : int = 0
-    output_tokens : int = 0
+class WorkflowState(TypedDict):
+    prospect_url : str
+    page_content : list[dict]
+    links : list
+    cleaned_content : dict | list[dict]
+    content_status : str
+    research_status : str
+    research_result : dict | None
+    strategy_result : dict | None
+    strategy_status : str
+    outreach_result : dict | None
+    outreach_status : str
+    final_report : dict | None
+    cleaned_content_attempts : int
+    research_attempts : int 
+    strategy_attempts : int
+    outreach_attempts : int
+    max_attempts : int
 
-state = State()
+
+
+
+
+
+
