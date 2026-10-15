@@ -1,13 +1,21 @@
 from groq import Groq
 from config.settings import setting
 from models.research_tool_schema import additional_research, AdditionalResearchInput
-from models.workflow_state import state
+from models.workflow_state import WorkflowState
 import json
+from langsmith import traceable, get_current_run_tree
 from config.logger import logger
 from google import genai
 from google.genai import types
 
-
+@traceable(
+    name="additional_search_tool_call",
+    run_type="tool",
+    metadata={
+        "ls_provider": "google",
+        "ls_model_name": setting.GEMINI_MODEL,
+    },
+)
 def missing_info_research(company_data):
     print("IN TOOL CALLL")
 
@@ -166,9 +174,16 @@ def missing_info_research(company_data):
         total_tokens = getattr(usage, "total_token_count", None)
         total_tokens = total_tokens if total_tokens is not None else input_tokens + output_tokens
 
-        state.input_tokens += input_tokens
-        state.output_tokens += output_tokens
-        state.total_token_used += total_tokens
+    run = get_current_run_tree()
+    
+    run.set(
+        usage_metadata={
+            "input_tokens": usage.prompt_token_count,
+            "output_tokens": usage.candidates_token_count,
+            "total_tokens": usage.total_token_count,
+        }
+    )
+
 
     result = additional_research.model_validate_json(response.text)
     return result
