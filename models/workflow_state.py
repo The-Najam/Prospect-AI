@@ -3,6 +3,10 @@ import operator
 
 class WorkflowState(TypedDict):
     prospect_url : str
+    user_service : str
+    low_risk_offer : str
+    proof : str | None
+    channel : str
     page_content : list[dict]
     links : list
     cleaned_content : dict | list[dict]
