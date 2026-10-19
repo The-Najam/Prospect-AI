@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prospect AI</title>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <main class="app-container">
+        <header class="page-header">
+            <h1>Prospect AI</h1>
+            <p>Generate a personalized prospect report.</p>
+        </header>
+
+        <section class="input-section" aria-labelledby="input-heading">
+            <h2 id="input-heading">Prospect Information</h2>
+
+            <form id="prospect-form" novalidate>
+                <div class="form-field">
+                    <label for="url">Prospect URL</label>
+                    <input
+                        type="url"
+                        id="url"
+                        name="url"
+                        placeholder="https://example.com"
+                        required
+                    >
+                </div>
+
+                <div class="form-field">
+                    <label for="user_service">Your Service</label>
+                    <textarea
+                        id="user_service"
+                        name="user_service"
+                        placeholder="Describe the service you provide"
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-field">
+                    <label for="low_risk_offer">Low-Risk Offer</label>
+                    <textarea
+                        id="low_risk_offer"
+                        name="low_risk_offer"
+                        placeholder="Describe your low-risk offer"
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-field">
+                    <label for="proof">Proof</label>
+                    <textarea
+                        id="proof"
+                        name="proof"
+                        placeholder="Testimonials, results, case studies, or other proof"
+                    ></textarea>
+                    <small>Optional</small>
+                </div>
+
+                <div class="form-field">
+                    <label for="channel">Preferred Channel</label>
+                    <select id="channel" name="channel" required>
+                        <option value="">Select a channel</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="email">Email</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="submit-button">
+                    Generate Report
+                </button>
+            </form>
+        </section>
+
+        <section
+            class="report-section"
+            id="report-section"
+            aria-labelledby="report-heading"
+            hidden
+        >
+            <h2 id="report-heading">Final Report</h2>
+
+            <output id="final-report" aria-live="polite"></output>
+        </section>
+    </main>
+</body>
+</html>
