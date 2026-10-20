@@ -5,17 +5,30 @@ from strategy.strategy_agent import strategy_agent_workflow
 from outreach.ai_copywriter import outreach_agent_workflow
 from outreach.final_report import report, partial_report, research_report
 from models.workflow_state import WorkflowState
+from models.user_schema import GetInput
 from config.logger import logger
 from config.settings import setting
 from datetime import datetime, timezone
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from database.database import create_dbconnection, insert_data, update_data, updata_data_fail
-import uuid
+from database.database_connection import create_dbconnection 
+from database.database_operations import add_record, update_complete_record, update_failed_record
 import asyncio
 import json
 import selectors
+import uuid
 from langsmith import Client
+
+
+def inputdata(state:WorkflowState):
+    url = input("Enter the url of Prospect : ")
+    user_service = input("Enter the Service You're offering : ")
+    low_risk_offer = input("Enter the Low Risk Offer : ")
+    proof = input("Enter the Proof : ")
+    channel = input("Enter the channel : ")
+    data = GetInput(url=url,user_service=user_service,low_risk_offer=low_risk_offer,proof=proof, channel=channel)
+
+    return {"prospect_url":data.url, "user_service":data.user_service,"low_risk_offer":data.low_risk_offer,"proof":data.proof, "channel":data.channel}
 
 
 # Content Routing
@@ -28,16 +41,6 @@ def content_routing(state:WorkflowState):
 
     return "failed"
     
-
-
-
-# taking input of data
-def input_data(research_result):
-    research_result.user_service = input("Enter The Service You're Offering")
-    research_result.user_low_risk = input("Enter Free Risk Offer You can Provide")
-    research_result.user_proof = input("Enter the proof : ")
-    channel = input("Enter the channel Name : ")
-    return research_result,channel
 
 
 # research route function
@@ -79,14 +82,25 @@ async def fetch_all_node(state: WorkflowState):
 def get_url_node(state: WorkflowState):
     return {"prospect_url": state["prospect_url"]}
 
+
 # main workflow
-async def workflow(prospect_url: str):
+async def workflow(state:WorkflowState):
     # generating id
-    run_id = str(uuid.uuid4())
+    run_id = state['run_id']
+    conn, cur = create_dbconnection()
+
+    #adding record
+    add_record(conn,cur,run_id,state['prospect_url'])
+
 
     # defining initial state
     initial_state = {
-        "prospect_url": prospect_url,
+        "run_id": run_id,
+        "prospect_url": state["prospect_url"],
+        "user_service":state["user_service"],
+        "low_risk_offer":state["low_risk_offer"],
+        "proof": state["proof"],
+        "channel":state["channel"],
         "page_content": [],
         "links": [],
         "cleaned_content": [],
@@ -103,6 +117,9 @@ async def workflow(prospect_url: str):
         "strategy_attempts": 0,
         "outreach_attempts": 0,
         "max_attempts": 3,
+        "gemini_tokens":0,
+        "groq_tokens":0,
+        "phase":"initial"
     }
 
     # configuration
@@ -189,18 +206,41 @@ async def workflow(prospect_url: str):
         prospect_workflow = prospect_graph.compile(checkpointer=checkpointer)
         try:
             result = await prospect_workflow.ainvoke(initial_state, config=config)
+
             snapshot = await prospect_workflow.aget_state(config)
+            final_state = snapshot.values
+
+            update_complete_record(
+                conn,
+                cur,
+                final_state.get("final_report", {}),
+                final_state.get("gemini_tokens", 0),
+                final_state.get("groq_tokens", 0),
+                run_id,
+            )
+
             return {
                 "run_id": run_id,
-                "input_url": prospect_url,
-                "state": snapshot.values,
+                "input_url": state["prospect_url"],
+                "state": final_state,
                 "result": result,
             }
         except Exception as exc:
             logger.exception("Workflow execution failed")
+            update_failed_record(
+                conn,
+                cur,
+                final_state.get("final_report", {}),
+                final_state.get("gemini_tokens", 0),
+                final_state.get("groq_tokens", 0),
+                final_state.get("phase"),
+                type(exc).__name__,
+                str(exc),
+                run_id
+        )
             return {
                 "run_id": run_id,
-                "input_url": prospect_url,
+                "input_url": state["prospect_url"],
                 "state": initial_state,
                 "result": {
                     "error_type": type(exc).__name__,

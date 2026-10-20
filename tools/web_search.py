@@ -73,20 +73,24 @@ def search_web(industry, user_service):
         response = chat_completion.choices[0].message.content
         print(response)
         result = WebSearchResult(**json.loads(response))
+        usage = getattr(chat_completion, "usage", None)
+        groq_tokens = getattr(usage, "total_tokens", 0) or 0
+
         run = get_current_run_tree()
-        run.set(
-            usage_metadata={
-                "input_tokens": chat_completion.usage.prompt_tokens,
-                "output_tokens": chat_completion.usage.completion_tokens,
-                "total_tokens": chat_completion.usage.total_tokens,
-            }
-        )
-        return result
+        if run and usage:
+            run.set(
+                usage_metadata={
+                    "input_tokens": usage.prompt_tokens,
+                    "output_tokens": usage.completion_tokens,
+                    "total_tokens": groq_tokens,
+                }
+            )
+
+        return result, groq_tokens
 
     except Exception as e:
-        logger.error("Failed to Research Industry!", e)
-
-
+        logger.error("Failed to Research Industry!", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     industry = "web designing"
