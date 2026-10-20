@@ -1,7 +1,7 @@
 from config.settings import setting
 from config.logger import logger
 from groq import Groq
-from research.research_analyzer import research_agent_workflow, clean_html, fetch_all, user_data, url_classification,fetch_homepage,normalize_deduplicate_links
+from research.research_analyzer import research_agent_workflow, clean_html, fetch_all, url_classification,fetch_homepage,normalize_deduplicate_links
 from strategy.strategy_agent import strategy_agent_workflow
 from models.outreach_schema import Outreach_Message,Email_Outreach
 from models.research_tool_schema import offer_tool_input
@@ -237,8 +237,10 @@ def offer_tool_calling(chat_completion):
     )
 
     offer_input = info_req.model_dump_json()
-    refined_offer = offerrefine(offer_input)
-    return refined_offer
+    refined_offer, refinement_groq_tokens = offerrefine(offer_input)
+
+    # offerrefine currently does not return token usage.
+    return refined_offer, refinement_groq_tokens
 
 @traceable(
     name="outreach_tool_llm_call",
@@ -369,7 +371,7 @@ def outreach_toolcall_check(outreach_input):
             "total_tokens": chat_completion.usage.total_tokens,
         }
     )
-    return chat_completion
+    return chat_completion, chat_completion.usage.total_tokens
 
 @traceable(
     name="message_generation_llm_call",
@@ -612,6 +614,11 @@ def outreach_message(outreach_input):
     )
 
     response = None
+    usage = None
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
+
     for attempt in range(3):
         if attempt == 2:
             model = setting.GEMINI_MODEL_2
@@ -631,13 +638,11 @@ def outreach_message(outreach_input):
             logger.info("Gemini outreach response received")
             run = get_current_run_tree()
             usage = getattr(response, "usage_metadata", None)
-            run.set(
-                usage_metadata={
-                    "input_tokens": usage.prompt_token_count,
-                    "output_tokens": usage.candidates_token_count,
-                    "total_tokens": usage.total_token_count,
-                }
-            )
+    
+            input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+            output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+            total_tokens = getattr(usage, "total_token_count", 0) or 0
+
             break
         except ServerError:
             if attempt == 2:
@@ -649,7 +654,7 @@ def outreach_message(outreach_input):
     if usage:
         input_tokens = getattr(usage, "prompt_token_count", 0) or 0
         output_tokens = getattr(usage, "candidates_token_count", 0) or 0
-        total_tokens = getattr(usage, "total_token_count", None)
+        total_tokens = getattr(usage, "total_token_count", 0) or 0
      
 
     response_text = response.text
@@ -674,7 +679,7 @@ def outreach_message(outreach_input):
         total_tokens=total_tokens if usage and total_tokens is not None else 0,
     )
     
-    return outreach_result
+    return outreach_result, total_tokens
 
 
 
@@ -732,7 +737,7 @@ def outreach_agent_workflow(state:WorkflowState):
         }
 
     try:
-        chat_completion = outreach_toolcall_check(outreach_input)
+        chat_completion, groq_tokens = outreach_toolcall_check(outreach_input)
     except Exception as exc:
         _log_event(
             "error",
@@ -748,7 +753,7 @@ def outreach_agent_workflow(state:WorkflowState):
     tool_calls = _safe_tool_calls(chat_completion)
     if tool_calls:
         try:
-            refined_offer = offer_tool_calling(chat_completion)
+            refined_offer, refinement_groq_tokens = offer_tool_calling(chat_completion)
             data = json.loads(outreach_input)
             data["refined_offer"] = refined_offer.refine_offer
             outreach_input = json.dumps(data)
@@ -765,13 +770,16 @@ def outreach_agent_workflow(state:WorkflowState):
         _log_event("info", "offer_refinement.not_needed")
 
     try:
-        outreach_result = outreach_message(outreach_input)
+        outreach_result, gemini_tokens = outreach_message(outreach_input)
         _log_event("info", "outreach_workflow.completed")
         print("Outreach Result:", outreach_result)
         return {
             "outreach_status": "success",
             "outreach_result": outreach_result.model_dump(mode="json"),
             "outreach_attempts": outreach_attempts,
+            "groq_tokens": groq_tokens,
+            "gemini_tokens": gemini_tokens,
+            "phase":"Outreach",
         }
     except Exception as exc:
         _log_event(
@@ -783,6 +791,7 @@ def outreach_agent_workflow(state:WorkflowState):
         return {
             "outreach_status": "retry",
             "outreach_attempts": outreach_attempts,
+            "phase":"Outreach"
         }
 
 
@@ -825,7 +834,6 @@ if __name__ == "__main__":
     }
 
     
-    # user_service, low_risk, proof = user_data()
     # url = "https://www.vistadentalimplants.com/"
 
     # page_content, links  = asyncio.run(fetch_homepage(url))

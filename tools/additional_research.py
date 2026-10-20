@@ -168,25 +168,26 @@ def missing_info_research(company_data):
     )
 
     usage = getattr(response, "usage_metadata", None)
-    if usage:
-        input_tokens = getattr(usage, "prompt_token_count", 0) or 0
-        output_tokens = getattr(usage, "candidates_token_count", 0) or 0
-        total_tokens = getattr(usage, "total_token_count", None)
-        total_tokens = total_tokens if total_tokens is not None else input_tokens + output_tokens
+    input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+    output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+    total_tokens = getattr(usage, "total_token_count", None)
+
+    if total_tokens is None:
+        total_tokens = input_tokens + output_tokens
 
     run = get_current_run_tree()
-    
-    run.set(
-        usage_metadata={
-            "input_tokens": usage.prompt_token_count,
-            "output_tokens": usage.candidates_token_count,
-            "total_tokens": usage.total_token_count,
-        }
-    )
 
+    if run and usage:
+        run.set(
+            usage_metadata={
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": total_tokens,
+            }
+        )
 
     result = additional_research.model_validate_json(response.text)
-    return result
+    return result, total_tokens
 
 
 if __name__ == "__main__":

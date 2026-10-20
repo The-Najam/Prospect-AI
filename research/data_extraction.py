@@ -11,12 +11,6 @@ import json
 import requests
 
 
-def user_data():
-    user_service = "copywriting"
-    low_risk = "Free Ad copy"
-    proof = "9+ years of experience"
-
-    return user_service, low_risk, proof
 
 
 def input_links(state:WorkflowState):

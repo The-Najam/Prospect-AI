@@ -1,5 +1,5 @@
 from research.data_cleaner import clean_html
-from research.data_extraction import fetch_all, fetch_homepage, normalize_deduplicate_links, url_classification, user_data
+from research.data_extraction import fetch_all, fetch_homepage, normalize_deduplicate_links, url_classification
 from models.research_schemas import ResearchResult
 from models.research_tool_schema import Bio_Extractor, WebSearchResult
 from models.workflow_state import WorkflowState
@@ -18,6 +18,13 @@ def log_event(level, event, **context):
     payload = {"event": event, **context}
     message = json.dumps(payload, default=str)
     getattr(logger, level)(message)
+
+
+def _get_groq_tokens(chat_completion):
+    usage = getattr(chat_completion, "usage", None)
+    return getattr(usage, "total_tokens", 0) or 0
+
+
 
 
 def content_conversion(content):
@@ -260,8 +267,10 @@ def first_llm_call(pages):
             "total_tokens": chat_completion.usage.total_tokens,
         }
     )
-   
-        return chat_completion
+        groq_tokens = _get_groq_tokens(chat_completion)
+
+        return chat_completion, groq_tokens
+
     except Exception as e:
         logger.error("Failed To Detect Tools Calls", exc_info=True)
         raise
@@ -465,12 +474,15 @@ def second_call(pages):
                 }
             )
         
+        
+        
         response = chat_completion.choices[0].message.content
-        print(type(response))
         research_result = response
-        print("RESEARCH RESULT : ", research_result)
 
-        return research_result
+        groq_tokens = _get_groq_tokens(chat_completion)
+
+        return research_result, groq_tokens
+
     except Exception as e:
         logger.error("Research Can't be done", exc_info=True)
         raise
@@ -498,10 +510,12 @@ def validate_research_output(research_result):
     return True
 
 
-def research_agent_workflow(state:WorkflowState):
+def research_agent_workflow(state: WorkflowState):
     research_attempts = state.get("research_attempts", 0) + 1
     logger.info(f"RESEARCH ATTEMPT : {research_attempts}")
-    user_service,low_risk,proof = user_data()
+    user_service = state["user_service"]
+    low_risk = state["low_risk_offer"]
+    proof = state["proof"]
     cleaned_content = state["cleaned_content"]
     content = (
         cleaned_content.model_dump(mode="json")
@@ -509,28 +523,27 @@ def research_agent_workflow(state:WorkflowState):
         else cleaned_content
     )
     pages = content_conversion(content)
-    chat_completions = first_llm_call(pages)
-    tool_calls = _extract_tool_calls(chat_completions)
+
+    chat_completion, first_call_tokens = first_llm_call(pages)
+    tool_calls = _extract_tool_calls(chat_completion)
 
     evidence_payload = pages
 
     if tool_calls:
         logger.info("Tool calls detected. Preparing additional context.")
         try:
-            additional_context = tool_calling(chat_completions, user_service)
+            additional_context = tool_calling(chat_completion, user_service)
 
             if additional_context:
                 evidence_payload = (
                     "<prospect_evidence>\n"
                     f"User_Service : {user_service},\n\n"
-                    f"Prospect Website Content : {pages}, \n\n"
+                    f"Prospect Website Content : {pages},\n\n"
                     f"Additional_Context : {additional_context}\n"
                     "</prospect_evidence>"
                 )
-            else:
-                logger.warning("No valid additional context returned by tools. Continuing with website content only.")
         except Exception:
-            logger.error("Tool execution failed. Continuing with website content only.", exc_info=True)
+            logger.error("Tool execution failed", exc_info=True)
 
     else:
         logger.info("No tools requested. Continuing with website content only.")
@@ -543,121 +556,10 @@ def research_agent_workflow(state:WorkflowState):
             f"Prospect Website Content : {pages}, \n\n"
             "</prospect_evidence>"
         )
-        research_result = second_call(evidence_payload)
-        # result = """{
-        # "company": {
-        #     "name": {
-        #     "value": "BrightPath Digital",
-        #     "evidence": {
-        #         "quote": "BrightPath Digital helps businesses grow through digital marketing and web solutions."
-        #     }
-        #     },
-        #     "about": {
-        #     "quote": "We help small and medium-sized businesses build their online presence through modern websites, SEO, and digital marketing strategies."
-        #     },
-        #     "industry": {
-        #     "value": "Digital Marketing and Web Development",
-        #     "evidence": {
-        #         "quote": "Our services include website development, search engine optimization, and online advertising."
-        #     }
-        #     },
-        #     "locations": [
-        #     {
-        #         "kind": "headquarters",
-        #         "value": "Karachi, Pakistan",
-        #         "evidence": {
-        #         "quote": "Our headquarters are located in Karachi, Pakistan."
-        #         }
-        #     },
-        #     {
-        #         "kind": "service_area",
-        #         "value": "Pakistan, United Arab Emirates, and United Kingdom",
-        #         "evidence": {
-        #         "quote": "We work with clients across Pakistan, the UAE, and the UK."
-        #         }
-        #     }
-        #     ],
-        #     "contact_paths": [
-        #     {
-        #         "channel": "email",
-        #         "value": "hello@example.com",
-        #         "evidence": {
-        #         "quote": "For business inquiries, email hello@example.com."
-        #         }
-        #     },
-        #     {
-        #         "channel": "phone",
-        #         "value": "+92-300-1234567",
-        #         "evidence": {
-        #         "quote": "Call our team at +92-300-1234567 to discuss your project."
-        #         }
-        #     },
-        #     {
-        #         "channel": "form",
-        #         "value": "https://example.com/contact",
-        #         "evidence": {
-        #         "quote": "Submit your project requirements using our contact form."
-        #         }
-        #     },
-        #     {
-        #         "channel": "social",
-        #         "value": "https://www.linkedin.com/company/example",
-        #         "evidence": {
-        #         "quote": "Connect with our team on LinkedIn for company updates."
-        #         }
-        #     }
-        #     ]
-        # },
-        # "services": [
-        #     {
-        #     "name": "Website Design and Development",
-        #     "evidence": {
-        #         "quote": "We design and develop responsive websites tailored to each client's business needs."
-        #     }
-        #     },
-        #     {
-        #     "name": "Search Engine Optimization",
-        #     "evidence": {
-        #         "quote": "Our SEO services help businesses improve their visibility in search engine results."
-        #     }
-        #     },
-        #     {
-        #     "name": "Social Media Marketing",
-        #     "evidence": {
-        #         "quote": "We manage social media campaigns to help brands reach and engage their target audiences."
-        #     }
-        #     },
-        #     {
-        #     "name": "Pay-Per-Click Advertising",
-        #     "evidence": {
-        #         "quote": "Our team creates and manages paid advertising campaigns across search and social platforms."
-        #     }
-        #     }
-        # ],
-        # "business_type": "both",
-        # "business_type_evidence": {
-        #     "quote": "We partner with businesses while also offering website packages for individuals and independent professionals."
-        # },
-        # "people": [
-        #     {
-        #     "name": "Ayesha Khan",
-        #     "role": "Founder and Managing Director",
-        #     "evidence": {
-        #         "quote": "Ayesha Khan founded BrightPath Digital and leads the company's strategy and operations."
-        #     }
-        #     },
-        #     {
-        #     "name": "Hamza Ali",
-        #     "role": "Head of Digital Marketing",
-        #     "evidence": {
-        #         "quote": "Hamza Ali leads the digital marketing team and oversees SEO and advertising campaigns."
-        #     }
-        #     }
-        # ],
-        # "user_service": "SEO services for small and medium-sized businesses",
-        # "user_proof": "The company explicitly offers search engine optimization and digital marketing services for business clients.",
-        # "user_low_risk": "Offer a complimentary SEO audit with actionable recommendations before proposing a paid engagement."
-        # }"""
+        research_result, second_call_tokens = second_call(evidence_payload)
+        total_groq_tokens = state.get("groq_tokens", 0) or 0
+        total_groq_tokens += second_call_tokens
+
         research_result = ResearchResult(**json.loads(research_result))
         research_result.user_service = user_service
         research_result.user_proof = proof
@@ -672,11 +574,18 @@ def research_agent_workflow(state:WorkflowState):
             "research_status": "success",
             "research_result": research_result.model_dump(mode="json"),
             "research_attempts": research_attempts,
+            "groq_tokens": first_call_tokens + second_call_tokens,
+            "phase":"Research"
         }
+
     except Exception:
         logger.error("Research workflow failed", exc_info=True)
-        return {"research_status":"retry","research_attempts":research_attempts}
-
+        return {
+            "research_status": "retry",
+            "research_attempts": research_attempts,
+            "groq_tokens": first_call_tokens,
+            "phase":"Research"
+        }
 
 if __name__ == "__main__":
     user_service, low_risk, proof = user_data()

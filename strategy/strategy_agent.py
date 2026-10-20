@@ -2,7 +2,7 @@ from models.strategy_schema import Strategy_result
 from config.settings import setting
 from config.logger import logger
 from research.data_cleaner import clean_html
-from research.data_extraction import fetch_all,user_data,normalize_deduplicate_links,url_classification,fetch_homepage
+from research.data_extraction import fetch_all,normalize_deduplicate_links,url_classification,fetch_homepage
 from research.research_analyzer import research_agent_workflow
 from tools.additional_research import missing_info_research
 from models.workflow_state import WorkflowState
@@ -18,7 +18,9 @@ def log_event(level, event, **context):
     payload = {"event": event, **context}
     getattr(logger, level)(json.dumps(payload, default=str))
 
-
+def _get_groq_tokens(chat_completion):
+    usage = getattr(chat_completion, "usage", None)
+    return getattr(usage, "total_tokens", 0) or 0
 
 def _call_groq_with_retry(call_factory, *, timeout=30, max_retries=3, request_name="Groq request"):
     for attempt in range(max_retries):
@@ -612,7 +614,7 @@ def strategy_agent(strategy_input):
 
 
             response = chat_completion.choices[0].message.content
-            print(chat_completion)
+            strategy_groq_tokens = _get_groq_tokens(chat_completion)
 
             try:
                 parsed_response = _safe_parse_json_object(
@@ -642,7 +644,7 @@ def strategy_agent(strategy_input):
                 ) from exc
 
         log_event("info", "strategy.result.created", result=str(result))
-        return result
+        return result, strategy_groq_tokens
     except Exception:
         logger.exception("Strategy creation failed")
         raise
@@ -652,7 +654,10 @@ def strategy_agent(strategy_input):
 def strategy_agent_workflow(state:WorkflowState):
     strategy_attempts = state.get("strategy_attempts",0) + 1
     logger.info(f"STRATEGY ATTEMPT : {strategy_attempts}")
-    user_service,low_risk,proof=user_data()
+    user_service = state["user_service"]
+    low_risk = state["low_risk_offer"]
+    proof = state["proof"]
+    channel = state["channel"]
 
     try:
         print("STRATEGY INPUT TYPE : ",type(state['research_result']))
@@ -663,9 +668,10 @@ def strategy_agent_workflow(state:WorkflowState):
             if hasattr(research_result, "model_dump")
             else research_result
         )
-        strategy_input['service'] = user_service
-        strategy_input['low_risk'] = low_risk
-        strategy_input['proof'] = proof
+        strategy_input['user_service'] = user_service
+        strategy_input['user_low_risk'] = low_risk
+        strategy_input['user_proof'] = proof
+        strategy_input['channel'] = channel
 
         strategy_input_validation(strategy_input)
     except Exception:
@@ -701,7 +707,7 @@ def strategy_agent_workflow(state:WorkflowState):
 
 
     try:
-        result = strategy_agent(strategy_input)
+        result, strategy_groq_tokens = strategy_agent(strategy_input)
 
         if result.fit == "strong":
             result.qualification = "strong"
@@ -747,14 +753,15 @@ def strategy_agent_workflow(state:WorkflowState):
             "strategy_status": "success",
             "strategy_result": result.model_dump(mode="json"),
             "strategy_attempts": strategy_attempts,
+            "groq_tokens": strategy_groq_tokens,
+            "phase":"Strategy"
         }
     except Exception as e:
         logger.exception("Failed to generate strategy {e}, Retrying Again")
-        return {"strategy_attempts":strategy_attempts, "strategy_status":"retry"}
+        return {"strategy_attempts":strategy_attempts, "strategy_status":"retry", "phase":"Strategy"}
         
 
 if __name__ == "__main__":
-    # user_service, low_risk, proof = user_data()
     # url = "https://melbournefamilydentist.com.au/"
 
     # page_content, links  = asyncio.run(fetch_homepage(url))

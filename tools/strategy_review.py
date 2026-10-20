@@ -179,21 +179,23 @@ def offerrefine(strategy_result):
     response = chat_completions.choices[0].message.content
     data = json.loads(response)
     result = offer_refine(**data)
+    usage = getattr(chat_completions, "usage", None)
+    groq_tokens = getattr(usage, "total_tokens", 0) or 0
+
     run = get_current_run_tree()
-    run.set(
-        usage_metadata={
-            "input_tokens": chat_completions.usage.prompt_tokens,
-            "output_tokens": chat_completions.usage.completion_tokens,
-            "total_tokens": chat_completions.usage.total_tokens,
-        }
-    )
+    if run and usage:
+        run.set(
+            usage_metadata={
+                "input_tokens": usage.prompt_tokens,
+                "output_tokens": usage.completion_tokens,
+                "total_tokens": groq_tokens,
+            }
+        )
 
     print(result)
     logger.info("OFFER REFINED SUCCESSFULLY!")
 
-    return(result)
-
-
+    return result, groq_tokens
 
 if __name__ == "__main__":
     data =      result = {
