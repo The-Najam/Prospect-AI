@@ -1,7 +1,9 @@
 from typing import TypedDict, Annotated
 import operator
 
+
 class WorkflowState(TypedDict):
+    run_id : str
     prospect_url : str
     user_service : str
     low_risk_offer : str
@@ -23,6 +25,9 @@ class WorkflowState(TypedDict):
     strategy_attempts : int
     outreach_attempts : int
     max_attempts : int
+    gemini_tokens : Annotated[int, operator.add]
+    groq_tokens : Annotated[int, operator.add]
+    phase : str
 
 
 
