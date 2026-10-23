@@ -8,6 +8,7 @@ from models.workflow_state import WorkflowState
 
 def clean_html(state:WorkflowState):
     content = []
+    cleaned_content_attempts = state.get("cleaned_content_attempts", 0) + 1
 
     for page in state['page_content']:
         html = page.get("content")
@@ -25,12 +26,14 @@ def clean_html(state:WorkflowState):
         text = soup.get_text(" ", strip=True)
         if text:
             content.append({"url": url, "page_type": page_type, "content": text})
-    state['cleaned_content_attempts'] += 1
-    logger.info(f"CLEANING CONTENT ATTEMPT : {state['cleaned_content_attempts']}")
+    logger.info(f"CLEANING CONTENT ATTEMPT : {cleaned_content_attempts}")
     if not content:
         
         logger.info(" No usable HTML content was fetched. Retrying Again!")
-        return {"cleaned_content":content}
+        return {
+            "cleaned_content": content,
+            "cleaned_content_attempts": cleaned_content_attempts,
+        }
         
     else:
         clean_web_result = WebExtraction(pages=content)
@@ -38,6 +41,7 @@ def clean_html(state:WorkflowState):
         return {
             "cleaned_content": clean_web_result.model_dump(mode="json"),
             "content_status": "success",
+            "cleaned_content_attempts": cleaned_content_attempts,
         }
 
 

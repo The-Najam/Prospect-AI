@@ -8,8 +8,8 @@ def create_dbconnection():
         f"""dbname=prospect-ai
         user={setting.DB_USER}
         password={setting.DB_PASSWORD}
-        host=localhost
-        port=5432"""
+        host={setting.DB_HOST}
+        port={setting.DB_PORT}"""
     )
 
     cur = conn.cursor()

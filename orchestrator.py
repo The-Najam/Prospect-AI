@@ -122,6 +122,8 @@ async def workflow(state:WorkflowState):
         "phase":"initial"
     }
 
+    final_state = initial_state
+
     # configuration
     config = {
         "configurable": {
@@ -200,7 +202,10 @@ async def workflow(state:WorkflowState):
     prospect_graph.add_edge("get_research_report", END)
 
     # compilation
-    connection = f"postgresql://{setting.DB_USER}:{setting.DB_PASSWORD}@localhost:5432/prospect-ai"
+    connection = (
+        f"postgresql://{setting.DB_USER}:{setting.DB_PASSWORD}"
+        f"@{setting.DB_HOST}:{setting.DB_PORT}/prospect-ai"
+    )
     async with AsyncPostgresSaver.from_conn_string(connection) as checkpointer:
         await checkpointer.setup()
         prospect_workflow = prospect_graph.compile(checkpointer=checkpointer)

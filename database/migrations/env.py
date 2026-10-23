@@ -1,4 +1,5 @@
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -57,6 +58,14 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    database_url = (
+        f"postgresql+psycopg://{os.getenv('DB_USER', 'postgres')}"
+        f":{os.getenv('DB_PASSWORD', 'password')}"
+        f"@{os.getenv('DB_HOST', 'localhost')}"
+        f":{os.getenv('DB_PORT', '5432')}/prospect-ai"
+    )
+    config.set_main_option("sqlalchemy.url", database_url)
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
