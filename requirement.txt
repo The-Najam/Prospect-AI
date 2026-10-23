@@ -6,7 +6,7 @@ groq==1.7.0
 langgraph==1.2.16
 langsmith==0.14.11
 protobuf==7.36.2
-psycopg==3.3.6
+psycopg[binary]
 pydantic==2.14.1
 pydantic_settings==2.16.0
 redis==8.1.0
@@ -15,4 +15,5 @@ rq==2.12.0
 slowapi==0.1.10
 SQLAlchemy==2.1.5
 google-genai
-
+uvicorn[standard]
+langgraph-checkpoint-postgres
