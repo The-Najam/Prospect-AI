@@ -1,27 +1,29 @@
+
+# importing Libraries
 from models.strategy_schema import Strategy_result
 from config.settings import setting
 from config.logger import logger
-from research.data_cleaner import clean_html
-from research.data_extraction import fetch_all,normalize_deduplicate_links,url_classification,fetch_homepage
-from research.research_analyzer import research_agent_workflow
 from tools.additional_research import missing_info_research
 from models.workflow_state import WorkflowState
 from langsmith import traceable, get_current_run_tree
 from groq import Groq
 import json
-import asyncio
 import time
 from pydantic import ValidationError
 from models.research_tool_schema import AdditionalResearchInput
 
+
+# log function
 def log_event(level, event, **context):
     payload = {"event": event, **context}
     getattr(logger, level)(json.dumps(payload, default=str))
 
+# get groq tokens
 def _get_groq_tokens(chat_completion):
     usage = getattr(chat_completion, "usage", None)
     return getattr(usage, "total_tokens", 0) or 0
 
+# Retry Groq Call
 def _call_groq_with_retry(call_factory, *, timeout=30, max_retries=3, request_name="Groq request"):
     for attempt in range(max_retries):
         try:
@@ -30,16 +32,13 @@ def _call_groq_with_retry(call_factory, *, timeout=30, max_retries=3, request_na
             if attempt == max_retries - 1:
                 logger.exception("%s failed after %s retries", request_name, max_retries)
                 raise
-
             retryable = isinstance(exc, (TimeoutError, ConnectionError, OSError))
             if not retryable:
                 logger.exception("%s failed with a non-retryable error", request_name)
                 raise
-
             delay = 2 ** attempt
             logger.warning("%s failed; retrying in %s seconds", request_name, delay)
             time.sleep(delay)
-
 
 
 CRITICAL_RESEARCH_FIELDS = [
@@ -60,17 +59,22 @@ def collect_missing_fields(research_result):
         return CRITICAL_RESEARCH_FIELDS.copy()
 
     if isinstance(research_result, dict):
-        company = research_result.get("company") or {}
 
+        # get all fields to check any missing value
+        company = research_result.get("company") or {}
         name = company.get("name") or {}
+        about = company.get("about") or {}
+        industry = company.get("industry") or {}
+        services = research_result.get("services") or []
+        business_type = research_result.get("business_type")
+        people = research_result.get("people") or []
+
         if not str(name.get("value", "")).strip():
             missing_fields.append("company.name")
 
-        about = company.get("about") or {}
         if not str(about.get("quote", "")).strip():
             missing_fields.append("company.about")
-
-        industry = company.get("industry") or {}
+        
         if not str(industry.get("value", "")).strip():
             missing_fields.append("company.industry")
 
@@ -79,67 +83,29 @@ def collect_missing_fields(research_result):
 
         if not company.get("contact_paths"):
             missing_fields.append("company.contact_paths")
-
-        services = research_result.get("services") or []
+        
         if not services:
             missing_fields.append("services")
 
-        business_type = research_result.get("business_type")
         if business_type in (None, "unclear"):
             missing_fields.append("business_type")
 
-        people = research_result.get("people") or []
         if not people:
             missing_fields.append("people")
 
         return missing_fields
 
-    company = getattr(research_result, "company", None)
-    if company is None:
-        return CRITICAL_RESEARCH_FIELDS.copy()
 
-    name = getattr(company, "name", None)
-    if name is None or not str(getattr(name, "value", "")).strip():
-        missing_fields.append("company.name")
-
-    about = getattr(company, "about", None)
-    if about is None or not str(getattr(about, "quote", "")).strip():
-        missing_fields.append("company.about")
-
-    industry = getattr(company, "industry", None)
-    if industry is None or not str(getattr(industry, "value", "")).strip():
-        missing_fields.append("company.industry")
-
-    if not getattr(company, "locations", None):
-        missing_fields.append("company.locations")
-
-    if not getattr(company, "contact_paths", None):
-        missing_fields.append("company.contact_paths")
-
-    services = getattr(research_result, "services", None) or []
-    if not services:
-        missing_fields.append("services")
-
-    business_type = getattr(research_result, "business_type", None)
-    if business_type in (None, "unclear"):
-        missing_fields.append("business_type")
-
-    people = getattr(research_result, "people", None) or []
-    if not people:
-        missing_fields.append("people")
-
-    return missing_fields
-
-
+# adding Extra Research into Strategy Input
 def enrich_strategy_input(strategy_input, extra_research):
     if extra_research is None:
         return strategy_input
-
     extra = getattr(extra_research, "additional_info", None) or []
+
     if not extra:
         return strategy_input
-
     strategy_input.setdefault("Extra Research", [])
+
     for item in extra:
         if hasattr(item, "model_dump"):
             strategy_input["Extra Research"].append(item.model_dump())
@@ -151,46 +117,6 @@ def enrich_strategy_input(strategy_input, extra_research):
     return strategy_input
 
 
-def _safe_tool_calls(chat_completions):
-    try:
-        choices = getattr(chat_completions, "choices", None) or []
-        if not choices:
-            return []
-
-        message = getattr(choices[0], "message", None)
-        if message is None:
-            return []
-
-        return getattr(message, "tool_calls", None) or []
-    except Exception:
-        logger.exception("Failed to read tool calls")
-        return []
-
-def _safe_json_loads(raw_arguments):
-    if raw_arguments is None:
-        raise ValueError("Tool arguments missing")
-
-    if isinstance(raw_arguments, dict):
-        return raw_arguments
-
-    if not isinstance(raw_arguments, str):
-        raise ValueError("Tool arguments must be a JSON string or dict")
-
-    raw_arguments = raw_arguments.strip()
-    if not raw_arguments:
-        raise ValueError("Tool arguments are empty")
-
-    try:
-        parsed = json.loads(raw_arguments)
-    except json.JSONDecodeError as exc:
-        raise ValueError("Invalid tool arguments JSON") from exc
-
-    if not isinstance(parsed, dict):
-        raise ValueError("Tool arguments JSON must be an object")
-
-    return parsed
-
-
 def _safe_parse_json_object(raw_response, context_name="response"):
     if raw_response is None:
         raise ValueError(f"{context_name} is empty")
@@ -200,8 +126,8 @@ def _safe_parse_json_object(raw_response, context_name="response"):
 
     if not isinstance(raw_response, str):
         raise ValueError(f"{context_name} must be a string or dict")
-
     raw_response = raw_response.strip()
+
     if not raw_response:
         raise ValueError(f"{context_name} is empty")
 
@@ -219,22 +145,27 @@ def _safe_parse_json_object(raw_response, context_name="response"):
 
 # Validating Input Validation 
 def strategy_input_validation(strategy_input):
+    # Extracting the info
+    company_data = strategy_input.get("company") or {}
+    name = company_data.get("name") or {}
+    about = company_data.get("about") or {}
+    industry = company_data.get("industry") or {}
+    services = strategy_input.get("services") or []
+    business_type = strategy_input.get("business_type")
+    people = strategy_input.get("people") or []
+
     if not isinstance(strategy_input, dict):
         raise ValueError("strategy_input must be a dictionary")
 
-    company_data = strategy_input.get("company") or {}
     if not isinstance(company_data, dict):
         raise ValueError("company is missing or invalid")
 
-    name = company_data.get("name") or {}
     if not str(name.get("value", "")).strip():
         raise ValueError("company.name.value is missing")
 
-    about = company_data.get("about") or {}
     if not str(about.get("quote", "")).strip():
         raise ValueError("company.about.quote is missing")
 
-    industry = company_data.get("industry") or {}
     if not str(industry.get("value", "")).strip():
         logger.error("company.industry.value is missing")
 
@@ -244,16 +175,12 @@ def strategy_input_validation(strategy_input):
     if not company_data.get("contact_paths"):
         logger.warning("company.contact_paths is missing")
         
-
-    services = strategy_input.get("services") or []
     if not isinstance(services, list) or not services:
         raise ValueError("services is missing or empty")
 
-    business_type = strategy_input.get("business_type")
     if business_type in (None,""):
         raise ValueError("business_type is missing or unclear")
 
-    people = strategy_input.get("people") or []
     if not isinstance(people, list):
         raise ValueError("people must be a list")
 
@@ -284,10 +211,11 @@ def output_validation(result, strategy_input):
         raise ValueError("Strategy result is missing reasoning")
 
     valid_qualification = {"strong", "medium", "low"}
+    valid_fit = {"strong", "moderate", "weak", "insufficient_evidence"}
+
     if result.qualification not in valid_qualification:
         raise ValueError("qualification must be one of: strong, medium, low")
 
-    valid_fit = {"strong", "moderate", "weak", "insufficient_evidence"}
     if result.fit not in valid_fit:
         raise ValueError("fit must be one of: strong, moderate, weak, insufficient_evidence")
 
@@ -337,87 +265,7 @@ def output_validation(result, strategy_input):
     logger.info("Output validation passed successfully")
 
 
-# Vaidation Tool Arguemnts Before Passing
-def tool_input_validation(arguments):
-    company_data = arguments['CompanyData']
-    opportunities = arguments['opportunties']
-    services = arguments['services']
-    icp = arguments['icp']
 
-    try:
-        for keys, values in company_data.items():
-            if keys.lower() == 'company_size' or keys == 'location':
-                continue
-            elif values is None or not str(values).strip():
-                raise ValueError(f"{keys} is missing from arguments")
-        logger.info("Company Data in Arguments Validated")
-
-        for key, values in opportunities.items():
-            if not values:
-                raise ValueError(f"{key} is missing from arguments")
-            for value in values:
-                if not value.get("Pain_Point", "").strip():
-                    raise ValueError("Pain_Point is missing from arguments")
-        logger.info("Pain Points in Arguments Validated")
-
-        for service in services["services"]:
-            for field, value in service.items():
-                if field == 'Pricing':
-                    continue
-                elif value is None or not str(value).strip():
-                    raise ValueError(f"services.{field} is missing from arguments")
-        logger.info("Services in Arguments Validated")
-
-        for key, values in icp.items():
-            if key == 'General_Buying_Behaviour' or key == 'General_Objections':
-                continue
-            elif values is None or not str(values).strip():
-                raise ValueError(f"{key} is missing from arguments")
-        logger.info("ICP in Arguments Validated")
-
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Failed to validate arguments")
-
-
-# Calling Tools 
-def strategy_tool_calling(chat_completions):
-    try:
-        tool_calls = _safe_tool_calls(chat_completions)
-        if not tool_calls:
-            logger.warning("No tool calls were returned")
-            return {}
-
-        logger.info("Tool Called!")
-
-        for tool in tool_calls:
-            function = getattr(tool, "function", None)
-            if function is None:
-                logger.warning("Tool call is missing a function payload")
-                continue
-
-            tool_name = getattr(function, "name", None)
-            if tool_name != "additional_research":
-                logger.warning("Unhandled tool requested: %s", tool_name)
-                continue
-
-            arguments = _safe_json_loads(getattr(function, "arguments", None))
-            logger.info("Arguments Extracted")
-
-            tool_input_validation(arguments)
-
-            research_input = AdditionalResearchInput(**arguments)
-            extra_research = missing_info_research(research_input)
-            tool_result = extra_research.model_dump()
-            return tool_result
-
-        logger.warning("No valid additional_research tool call was processed")
-        return {}
-
-    except Exception:
-        logger.exception("Failed to generate tool results")
-        raise
 
 
 @traceable(
@@ -551,10 +399,9 @@ def strategy_agent(strategy_input):
     """
     try:
         client = Groq(api_key=setting.GROQ_API_KEY)
-
         chat_completion = _call_groq_with_retry(
             lambda timeout: client.chat.completions.create(
-                model="openai/gpt-oss-120b",
+                model=setting.model,
                 messages=[
                     {
                         "role": "system",
@@ -579,14 +426,13 @@ def strategy_agent(strategy_input):
             max_retries=3,
             request_name="strategy_agent",
         )
-        print(json.dumps(Strategy_result.model_json_schema(), indent=2))
         result = None
 
         for attempt in range(2):
             # Keep the existing _call_groq_with_retry(...) request here unchanged.
             chat_completion = _call_groq_with_retry(
                 lambda timeout: client.chat.completions.create(
-                    model="openai/gpt-oss-120b",
+                    model=setting.model,
                     messages=[
                         {
                             "role": "system",
@@ -611,8 +457,6 @@ def strategy_agent(strategy_input):
                 max_retries=3,
                 request_name="strategy_agent",
             )
-
-
             response = chat_completion.choices[0].message.content
             strategy_groq_tokens = _get_groq_tokens(chat_completion)
 
@@ -654,49 +498,39 @@ def strategy_agent(strategy_input):
 def strategy_agent_workflow(state:WorkflowState):
     strategy_attempts = state.get("strategy_attempts",0) + 1
     logger.info(f"STRATEGY ATTEMPT : {strategy_attempts}")
-    user_service = state["user_service"]
-    low_risk = state["low_risk_offer"]
-    proof = state["proof"]
-    channel = state["channel"]
 
     try:
-        print("STRATEGY INPUT TYPE : ",type(state['research_result']))
-        print("STRATEGY INPUT : ", state['research_result'])
         research_result = state["research_result"]
         strategy_input = (
             research_result.model_dump(mode="json")
             if hasattr(research_result, "model_dump")
             else research_result
         )
-        strategy_input['user_service'] = user_service
-        strategy_input['user_low_risk'] = low_risk
-        strategy_input['user_proof'] = proof
-        strategy_input['channel'] = channel
-
+        strategy_input['user_service'] = state["user_service"]
+        strategy_input['user_low_risk'] = state["low_risk_offer"]
+        strategy_input['user_proof'] = state["proof"]
+        strategy_input['channel'] = state["channel"]
         strategy_input_validation(strategy_input)
+
     except Exception:
         logger.exception("Input validation failed")
         return {"strategy_attempts":strategy_attempts, "strategy_status":"retry"}
 
     missing_fields = collect_missing_fields(strategy_input)
-
     if missing_fields:
         logger.info("Missing research fields before LLM call: %s", missing_fields)
-
         prospect_url = (
             strategy_input.get("url")
             or strategy_input.get("CompanyData", {}).get("url")
             or strategy_input.get("website_url")
             or ""
         )
-
         if prospect_url:
             research_input = AdditionalResearchInput(
                 url=prospect_url,
                 missing_fields=missing_fields,
                 already_fetched=[]
             )
-
             try:
                 extra_research = missing_info_research(research_input)
                 strategy_input = enrich_strategy_input(strategy_input, extra_research)
@@ -708,7 +542,6 @@ def strategy_agent_workflow(state:WorkflowState):
 
     try:
         result, strategy_groq_tokens = strategy_agent(strategy_input)
-
         if result.fit == "strong":
             result.qualification = "strong"
         elif result.fit == "moderate":
@@ -717,8 +550,7 @@ def strategy_agent_workflow(state:WorkflowState):
             result.qualification = "low"
         else:
             result.qualification = "low"
-        # Overwrite these values with the user's exact values after the LLM call.
-        
+
         result.service = (
             strategy_input.get("user_service")
             or strategy_input.get("service")
@@ -747,8 +579,6 @@ def strategy_agent_workflow(state:WorkflowState):
 
         output_validation(result, strategy_input)
         log_event("info", "strategy.workflow.success", user_service=strategy_input.get("user_service"))
-        print("Strategy Result:", result)
-        
         return {
             "strategy_status": "success",
             "strategy_result": result.model_dump(mode="json"),
@@ -760,156 +590,3 @@ def strategy_agent_workflow(state:WorkflowState):
         logger.exception("Failed to generate strategy {e}, Retrying Again")
         return {"strategy_attempts":strategy_attempts, "strategy_status":"retry", "phase":"Strategy"}
         
-
-if __name__ == "__main__":
-    # url = "https://melbournefamilydentist.com.au/"
-
-    # page_content, links  = asyncio.run(fetch_homepage(url))
-    # urls = normalize_deduplicate_links(links,url)
-    # selected_pages_url = url_classification(urls)
-    # selected_pages_url.append({"url":url, "page_type":"Home"})
-    # page_content = asyncio.run(fetch_all(selected_pages_url))
-    # content = clean_html(page_content)
-    # content = content.model_dump()
-    # result = research_agent_workflow(content,user_service)
-    # result.user_service = "lEAD GENERATION"
-    # result.user_proof = "7+ years of experience"
-    # result.user_low_risk = "Free Ad copy"
-    result = {
-  "company": {
-    "name": {
-      "value": "Acme Digital Solutions",
-      "evidence": {
-        "quote": "Acme Digital Solutions is a digital transformation agency."
-      }
-    },
-    "about": {
-      "quote": "We help businesses grow through innovative technology, digital marketing, and custom software solutions."
-    },
-    "industry": {
-      "value": "Information Technology and Digital Marketing",
-      "evidence": {
-        "quote": "Our team specializes in software development, SEO, and digital marketing services."
-      }
-    },
-    "locations": [
-      {
-        "kind": "headquarters",
-        "value": "Karachi, Pakistan",
-        "evidence": {
-          "quote": "Our headquarters are located in Karachi, Pakistan."
-        }
-      },
-      {
-        "kind": "office",
-        "value": "Lahore, Pakistan",
-        "evidence": {
-          "quote": "Visit our regional office in Lahore for in-person consultations."
-        }
-      },
-      {
-        "kind": "service_area",
-        "value": "United States, United Kingdom, and Pakistan",
-        "evidence": {
-          "quote": "We serve clients across Pakistan, the United States, and the United Kingdom."
-        }
-      }
-    ],
-    "contact_paths": [
-      {
-        "channel": "email",
-        "value": "hello@acmedigital.example",
-        "evidence": {
-          "quote": "For inquiries, email us at hello@acmedigital.example."
-        }
-      },
-      {
-        "channel": "phone",
-        "value": "+92-21-12345678",
-        "evidence": {
-          "quote": "Call our office at +92-21-12345678 to speak with our team."
-        }
-      },
-      {
-        "channel": "form",
-        "value": "https://acmedigital.example/contact",
-        "evidence": {
-          "quote": "Fill out our contact form to discuss your project requirements."
-        }
-      },
-      {
-        "channel": "booking_link",
-        "value": "https://acmedigital.example/book-consultation",
-        "evidence": {
-          "quote": "Schedule a free consultation with one of our digital experts."
-        }
-      },
-      {
-        "channel": "social",
-        "value": "https://www.linkedin.com/company/acme-digital-solutions",
-        "evidence": {
-          "quote": "Follow Acme Digital Solutions on LinkedIn for company updates and insights."
-        }
-      }
-    ]
-  },
-  "services": [
-    {
-      "name": "Custom Software Development",
-      "evidence": {
-        "quote": "We build custom software applications tailored to your business needs."
-      }
-    },
-    {
-      "name": "Search Engine Optimization",
-      "evidence": {
-        "quote": "Our SEO services help businesses improve search rankings and organic traffic."
-      }
-    },
-    {
-      "name": "Digital Marketing",
-      "evidence": {
-        "quote": "We provide digital marketing campaigns across search engines and social media platforms."
-      }
-    },
-    {
-      "name": "Website Design and Development",
-      "evidence": {
-        "quote": "Our team designs and develops responsive websites for businesses of all sizes."
-      }
-    }
-  ],
-  "business_type": "both",
-  "business_type_evidence": {
-    "quote": "We partner with enterprises and small businesses while also offering digital solutions directly to individual entrepreneurs."
-  },
-  "people": [
-    {
-      "name": "Ahmed Khan",
-      "role": "Chief Executive Officer",
-      "evidence": {
-        "quote": "Ahmed Khan is the Chief Executive Officer of Acme Digital Solutions."
-      }
-    },
-    {
-      "name": "Sara Ali",
-      "role": "Head of Marketing",
-      "evidence": {
-        "quote": "Sara Ali leads the company's marketing strategy and client acquisition initiatives."
-      }
-    },
-    {
-      "name": "Usman Malik",
-      "role": "Chief Technology Officer",
-      "evidence": {
-        "quote": "Usman Malik oversees software engineering and technology development."
-      }
-    }
-  ],
-  "user_service": "Lead Generation",
-  "user_proof": "7+ years of experience",
-  "user_low_risk": "No Money Until Land One Patient"
-}
-
-    strategy_input = result
-    strategy_result = strategy_agent_workflow(strategy_input)

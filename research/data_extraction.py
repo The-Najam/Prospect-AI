@@ -1,5 +1,6 @@
+
+# importing Libraries
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
-import asyncio
 from models.web_extraction_schema import WebExtraction
 from config.logger import logger
 from urllib.parse import urlparse, urljoin, urlsplit, urlunsplit
@@ -12,10 +13,10 @@ import requests
 
 
 
-
+# Get Prospect Link and validate url
 def input_links(state:WorkflowState):
+    
     url = input("Paste the url of Prospect Website : ")
-
     state['prospect_url'] = url
 
     if url.startswith(("http://","https://")):
@@ -26,26 +27,25 @@ def input_links(state:WorkflowState):
             except socket.gaierror:
                 logger.error("Domain Not Exist")
 
-            try:
+            try:      
                 response = requests.get(url, timeout=10)
-
                 logger.info("Server is reachable")
                 logger.info("Status:", response.status_code)
-
                 return {"prospect_url":url}
+            
             except requests.exceptions.RequestException as e:
                 logger.error("Server could not be reached", e)
     else:
         logger.error("Invalid Url")
 
 
+# Fetch Homepage and Extract Links from Prospect's Website
 async def fetch_homepage(state:WorkflowState):
     url = state['prospect_url']
     # creating crawler for home page
     async with AsyncWebCrawler() as crawler:
         content = await crawler.arun(url)
         page_content = []
-
         for c in content:
             url = c.url
             page_content.append({"url":url, "html":c.cleaned_html})
@@ -56,12 +56,11 @@ async def fetch_homepage(state:WorkflowState):
         links = [a.get("href") for a in soup.find_all("a", href=True)]
         state['page_content'] = page_content
         state['links'] = links
-        print("PRE CONTENT: ",state['page_content'])
 
         return {"page_content":page_content, "links": links}
     
 
-
+# Normalize and Deduplicate Links
 def normalize_deduplicate_links(state:WorkflowState):
     homepage_url = state['prospect_url']
     absolute_links = [urljoin(homepage_url, link) for link in state['links']]
@@ -70,19 +69,16 @@ def normalize_deduplicate_links(state:WorkflowState):
     # normalizing links into consisting format
     for link in absolute_links:
         parts = urlsplit(link)
-
         scheme = parts.scheme.lower()
         hostname = parts.hostname.lower() if parts.hostname else ""
-
         netloc = hostname
+
         if parts.port:
             netloc += f":{parts.port}"
-
         path = parts.path or "/"
 
         if path != "/" and path.endswith("/"):
             path = path.rstrip("/")
-
         normalize_links.append(urlunsplit((scheme, netloc, path, parts.query, "")))
 
     # Performing deduplication
@@ -102,11 +98,10 @@ def normalize_deduplicate_links(state:WorkflowState):
         else:
             unique_urls.remove(link)
 
-
     return {"links":unique_urls}
 
 
-
+# classify url based on categories and fetch only Four
 def url_classification(state: WorkflowState):
     page_keywords = {
         "about": ["about", "company", "who-we-are", "our-story"],
@@ -121,9 +116,7 @@ def url_classification(state: WorkflowState):
 
     selected_page_type = []
     max_pages = 4
-
     links = state.get("links", [])
-    print("LINKS:", links)
 
     for url in links:
         parts = urlsplit(url)
@@ -148,8 +141,9 @@ def url_classification(state: WorkflowState):
     selected_page_type.append({"url":state["prospect_url"], "page_type":"Home"})
     state["page_content"] = selected_page_type
 
-    print("SELECTED PAGE CONTENT:", selected_page_type)
     return {"page_content": selected_page_type}
+
+
 
 @traceable(run_type="tool", name="crawl_page")
 async def fetch_all(state:WorkflowState):
@@ -157,7 +151,6 @@ async def fetch_all(state:WorkflowState):
     config = CrawlerRunConfig(
     page_timeout=15_000
 )
-    print(state['page_content'])
     # fetching important urls content
     async with AsyncWebCrawler() as crawler:
         for page in state['page_content']:
@@ -176,7 +169,7 @@ async def fetch_all(state:WorkflowState):
                 ".mp3",
                 ".zip"
             )):
-                print("This URL points to a non-data file")
+                logger.info("This URL points to a non-data file")
                 continue
             try:
                 content = await crawler.arun(url,config)
@@ -188,25 +181,9 @@ async def fetch_all(state:WorkflowState):
                         f"Failed To Fetch {page_type} Page: {url} — {e}",
                         exc_info=True
                     )
-
-    print("CONTENT",page_content)
-    
+                    
     return {"page_content":page_content}
 
 
 
-
-
-    
-
-
-
-
-if __name__ == "__main__":
-    url = input_links()
-    page_content, links  = asyncio.run(fetch_homepage(url))
-    urls = normalize_deduplicate_links(links,url)
-    selected_pages_url = url_classification(urls)
-    selected_pages_url.append({"url":url, "page_type":"Home"})
-    page_content = asyncio.run(fetch_all(selected_pages_url))
 
