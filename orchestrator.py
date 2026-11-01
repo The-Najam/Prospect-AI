@@ -1,6 +1,15 @@
+
+# Importing Libraries
 from research.research_analyzer import research_agent_workflow
 from research.data_cleaner import clean_html
-from research.data_extraction import fetch_all, input_links,fetch_homepage, normalize_deduplicate_links, url_classification
+from research.data_extraction import (
+    fetch_all,
+    input_links,
+    fetch_homepage,
+    normalize_deduplicate_links,
+    url_classification,
+    validate_prospect_url,
+)
 from strategy.strategy_agent import strategy_agent_workflow
 from outreach.ai_copywriter import outreach_agent_workflow
 from outreach.final_report import report, partial_report, research_report
@@ -10,7 +19,6 @@ from config.logger import logger
 from config.settings import setting
 from datetime import datetime, timezone
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from database.database_connection import create_dbconnection 
 from database.database_operations import add_record, update_complete_record, update_failed_record
 import asyncio
@@ -18,8 +26,10 @@ import json
 import selectors
 import uuid
 from langsmith import Client
+from config.error_handling import is_rate_limit_error
 
 
+# taking Input From user
 def inputdata(state:WorkflowState):
     url = input("Enter the url of Prospect : ")
     user_service = input("Enter the Service You're offering : ")
@@ -35,7 +45,6 @@ def inputdata(state:WorkflowState):
 def content_routing(state:WorkflowState):
     if state["content_status"] == "success":
         return "success"
-
     if state["cleaned_content_attempts"] < state["max_attempts"]:
         return "retry"
 
@@ -85,6 +94,8 @@ def get_url_node(state: WorkflowState):
 
 # main workflow
 async def workflow(state:WorkflowState):
+    validate_prospect_url(state["prospect_url"])
+
     # generating id
     run_id = state['run_id']
     conn, cur = create_dbconnection()
@@ -120,6 +131,7 @@ async def workflow(state:WorkflowState):
         "gemini_tokens":0,
         "groq_tokens":0,
         "phase":"initial"
+        ,"error_message": None
     }
 
     final_state = initial_state
@@ -202,36 +214,14 @@ async def workflow(state:WorkflowState):
     prospect_graph.add_edge("get_research_report", END)
 
     # compilation
-    connection = (
-        f"postgresql://{setting.DB_USER}:{setting.DB_PASSWORD}"
-        f"@{setting.DB_HOST}:{setting.DB_PORT}/prospect-ai"
-    )
-    async with AsyncPostgresSaver.from_conn_string(connection) as checkpointer:
-        await checkpointer.setup()
-        prospect_workflow = prospect_graph.compile(checkpointer=checkpointer)
-        try:
-            result = await prospect_workflow.ainvoke(initial_state, config=config)
+    prospect_workflow = prospect_graph.compile()
+    final_state = initial_state
+    try:
+        result = await prospect_workflow.ainvoke(initial_state, config=config)
 
-            snapshot = await prospect_workflow.aget_state(config)
-            final_state = snapshot.values
+        final_state = result
 
-            update_complete_record(
-                conn,
-                cur,
-                final_state.get("final_report", {}),
-                final_state.get("gemini_tokens", 0),
-                final_state.get("groq_tokens", 0),
-                run_id,
-            )
-
-            return {
-                "run_id": run_id,
-                "input_url": state["prospect_url"],
-                "state": final_state,
-                "result": result,
-            }
-        except Exception as exc:
-            logger.exception("Workflow execution failed")
+        if final_state.get("error_message"):
             update_failed_record(
                 conn,
                 cur,
@@ -239,19 +229,60 @@ async def workflow(state:WorkflowState):
                 final_state.get("gemini_tokens", 0),
                 final_state.get("groq_tokens", 0),
                 final_state.get("phase"),
-                type(exc).__name__,
-                str(exc),
-                run_id
-        )
+                "RateLimitError",
+                final_state["error_message"],
+                run_id,
+            )
             return {
                 "run_id": run_id,
                 "input_url": state["prospect_url"],
-                "state": initial_state,
-                "result": {
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                },
+                "state": final_state,
+                "result": {"error_message": final_state["error_message"]},
             }
+
+        update_complete_record(
+            conn,
+            cur,
+            final_state.get("final_report", {}),
+            final_state.get("gemini_tokens", 0),
+            final_state.get("groq_tokens", 0),
+            run_id,
+        )
+
+        return {
+            "run_id": run_id,
+            "input_url": state["prospect_url"],
+            "state": final_state,
+            "result": result,
+        }
+    except Exception as exc:
+        logger.exception("Workflow execution failed")
+        error_message = (
+            "Report generation couldn't be completed because the website "
+            "content exceeded the available processing capacity."
+            if is_rate_limit_error(exc)
+            else str(exc)
+        )
+        update_failed_record(
+            conn,
+            cur,
+            final_state.get("final_report", {}),
+            final_state.get("gemini_tokens", 0),
+            final_state.get("groq_tokens", 0),
+            final_state.get("phase"),
+            type(exc).__name__,
+            error_message,
+            run_id
+        )
+        return {
+            "run_id": run_id,
+            "input_url": state["prospect_url"],
+            "state": initial_state,
+            "result": {
+                "error_type": type(exc).__name__,
+                "error_message": error_message,
+            },
+        }
         
 # For testing Concurrent Users
 async def test_concurrent_runs():
@@ -291,6 +322,3 @@ if __name__ == "__main__":
         test_concurrent_runs(),
         loop_factory=lambda: asyncio.SelectorEventLoop(selectors.SelectSelector()),
     )
-
-
-

@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from config.settings import setting
 from config.logger import logger
 from groq import Groq
+from config.error_handling import is_rate_limit_error
 import json
 
 # log Function
@@ -565,11 +566,17 @@ def research_agent_workflow(state: WorkflowState):
             "phase":"Research"
         }
 
-    except Exception:
+    except Exception as exc:
         logger.error("Research workflow failed", exc_info=True)
-        return {
+        result = {
             "research_status": "retry",
             "research_attempts": research_attempts,
             "groq_tokens": first_call_tokens,
             "phase":"Research"
         }
+        if is_rate_limit_error(exc):
+            result["error_message"] = (
+                "Report generation couldn't be completed because the website "
+                "content exceeded the available processing capacity."
+            )
+        return result

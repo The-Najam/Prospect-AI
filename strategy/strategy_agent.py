@@ -11,6 +11,7 @@ import json
 import time
 from pydantic import ValidationError
 from models.research_tool_schema import AdditionalResearchInput
+from config.error_handling import is_rate_limit_error
 
 
 # log function
@@ -588,5 +589,15 @@ def strategy_agent_workflow(state:WorkflowState):
         }
     except Exception as e:
         logger.exception("Failed to generate strategy {e}, Retrying Again")
-        return {"strategy_attempts":strategy_attempts, "strategy_status":"retry", "phase":"Strategy"}
+        result = {
+            "strategy_attempts": strategy_attempts,
+            "strategy_status": "retry",
+            "phase": "Strategy",
+        }
+        if is_rate_limit_error(e):
+            result["error_message"] = (
+                "Report generation couldn't be completed because the website "
+                "content exceeded the available processing capacity."
+            )
+        return result
         

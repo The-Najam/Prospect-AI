@@ -16,6 +16,7 @@ import time
 from pydantic import ValidationError
 import random
 from google.genai.errors import ServerError
+from config.error_handling import is_rate_limit_error
 
 
 # log function
@@ -47,8 +48,9 @@ def outreach_input_validation(result):
     if not isinstance(result, dict):
         raise ValueError("Outreach input must be an object")
 
+    print()
     for field in (
-        "user_service",
+        "service",
         "qualification",
         "fit",
         "fit_reasons",
@@ -62,11 +64,11 @@ def outreach_input_validation(result):
         if field not in result:
             raise ValueError(f"Missing required field: {field}")
 
-    for field in ("user_service", "qualification", "channel", "service", "proof"):
+    for field in ("qualification", "channel", "service", "proof"):
         if not isinstance(result[field], str):
             raise ValueError(f"{field} must be a string")
 
-    if not result["user_service"].strip():
+    if not result["service"].strip():
         raise ValueError("User Service Is Empty")
 
     if result["qualification"] not in {"strong", "medium", "low"}:
@@ -744,10 +746,16 @@ def outreach_agent_workflow(state:WorkflowState):
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        return {
+        result = {
             "outreach_status": "retry",
             "outreach_attempts": outreach_attempts,
         }
+        if is_rate_limit_error(exc):
+            result["error_message"] = (
+                "Report generation couldn't be completed because the website "
+                "content exceeded the available processing capacity."
+            )
+        return result
 
     try:
         chat_completion, groq_tokens = outreach_toolcall_check(outreach_input)
@@ -801,9 +809,14 @@ def outreach_agent_workflow(state:WorkflowState):
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        return {
+        result = {
             "outreach_status": "retry",
             "outreach_attempts": outreach_attempts,
             "phase":"Outreach"
         }
-
+        if is_rate_limit_error(exc):
+            result["error_message"] = (
+                "Report generation couldn't be completed because the website "
+                "content exceeded the available processing capacity."
+            )
+        return result
