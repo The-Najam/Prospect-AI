@@ -15,7 +15,6 @@ class Outreach_Message(BaseModel):
     outreach_msg : DM
 
 
-
 class Email_Outreach(BaseModel):
     channel : str
     outreach_msg : Email
