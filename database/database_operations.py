@@ -3,9 +3,9 @@ from database.database_connection import create_dbconnection
 from psycopg.types.json import Jsonb
 
 
+# Adding Record when workflow Started
 def add_record(con, cur, run_id, prospect_url):
     started_at = datetime.datetime.now(datetime.timezone.utc)
-
     cur.execute(
         """
         INSERT INTO prospect_tracking_run (
@@ -40,7 +40,7 @@ def add_record(con, cur, run_id, prospect_url):
 
     con.commit()
 
-
+# update record after workflow Completed Successfully
 def update_complete_record(
     con,
     cur,
@@ -75,6 +75,7 @@ def update_complete_record(
     con.commit()
 
 
+# Update Record When Workflow Failed
 def update_failed_record(
         con,
         cur,
@@ -115,13 +116,15 @@ def update_failed_record(
     )
     con.commit()
 
+
+# Get report of Given ID
 def get_report(run_id):
     conn, cur = create_dbconnection()
 
     try:
         cur.execute(
             """
-            SELECT final_report
+            SELECT status, final_report, error_message
             FROM prospect_tracking_run
             WHERE run_id = %s
             """,
@@ -129,9 +132,15 @@ def get_report(run_id):
         )
 
         row = cur.fetchone()
-        return row[0] if row else None
+        if row is None:
+            return None
+
+        return {
+            "status": row[0],
+            "report": row[1],
+            "error_message": row[2],
+        }
 
     finally:
         cur.close()
         conn.close()
-
