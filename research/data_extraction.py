@@ -10,6 +10,38 @@ from models.workflow_state import WorkflowState
 from langsmith import traceable
 import json
 import requests
+import ipaddress
+
+
+def validate_prospect_url(url: str) -> None:
+    """Reject URLs that cannot be used as a prospect website."""
+    try:
+        parsed_url = urlsplit(url)
+        hostname = parsed_url.hostname
+    except ValueError as exc:
+        raise ValueError("The URL is malformed.") from exc
+
+    if parsed_url.scheme not in {"http", "https"} or not hostname:
+        raise ValueError("Enter a complete HTTP or HTTPS website URL.")
+
+    try:
+        is_ip_address = ipaddress.ip_address(hostname) is not None
+    except ValueError:
+        is_ip_address = False
+
+    if hostname != "localhost" and not is_ip_address and "." not in hostname:
+        raise ValueError("Enter a complete website domain, such as example.com.")
+
+    hostname = hostname.lower()
+    path = parsed_url.path.lower()
+    image_extensions = (
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".tif", ".tiff"
+    )
+    is_image_host = (
+        hostname.startswith("encrypted-tbn") and hostname.endswith(".gstatic.com")
+    )
+    if path.endswith(image_extensions) or is_image_host:
+        raise ValueError("Image URLs are not supported. Enter the prospect website URL.")
 
 
 
@@ -17,6 +49,7 @@ import requests
 def input_links(state:WorkflowState):
     
     url = input("Paste the url of Prospect Website : ")
+    validate_prospect_url(url)
     state['prospect_url'] = url
 
     if url.startswith(("http://","https://")):
