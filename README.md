@@ -272,3 +272,350 @@ A dedicated async task queue such as arq remains a potential future improvement 
 - **Simpler Maintenance:** Reduces the frontend tooling and dependency overhead during early development.
 
 **Trade-off:** Vanilla JavaScript offers less built-in structure for managing increasingly complex interfaces. As the application grows, introducing a frontend framework may become beneficial.
+
+
+
+# Testing & Evaluation
+
+Prospect AI was evaluated through two testing phases: baseline functional testing and failure/edge-case testing. The evaluation focused on workflow reliability, generated report quality, execution latency, and system behavior under abnormal conditions.
+
+1. Baseline Testing
+
+Baseline testing involved submitting different prospect websites and input configurations to evaluate normal end-to-end workflow execution.
+
+## Results:
+
+| Metric | Observed Result |
+|---|---|
+| Total executions | 20 |
+| Successful workflows | 15/20 (75%) |
+| Failed workflows | 5/20 (25%) |
+| Reports manually scored | 15 |
+| Average manual score | 12.87/18 (71.5%) |
+| Median manual score | 13/18 |
+| Highest score | 17/18 |
+| Lowest score | 9/18 |
+| Reports marked usable | 13/20 (65%) |
+| Average latency (all attempts) | 61.7 seconds |
+| Average latency (successful runs) | 60.7 seconds |
+
+## Failure Breakdown:
+
+- Website extraction failures: 3/20 (15%).
+- Workflow execution failures: 2/20 (10%).
+
+These categories account for all five unsuccessful executions.
+
+2. Manual Report Quality Evaluation
+
+Successful reports were manually evaluated using a structured scoring rubric (rubric.md), with a maximum score of 18 points.
+
+The evaluation considered:
+
+- Research quality and relevance.
+- Prospect qualification and strategy.
+- Outreach personalization.
+- Offer consistency.
+- Input consistency.
+- Workflow completion.
+- Evidence quality and uncertainty handling.
+
+The average score across 15 evaluated reports was 12.87/18 (71.5%). Additionally, 13 out of 20 total executions were marked as producing usable reports.
+
+3. Failure & Edge-Case Testing
+
+A separate failure-testing phase evaluated the system under abnormal conditions to assess input validation, error handling, workflow recovery, and frontend behavior.
+
+Results:
+
+| Metric | Result |
+|---|---|
+| Total test cases | 14 |
+| Passed | 13 |
+| Partial pass | 1 |
+| Unresolved failures | 0 |
+
+Scenarios covered:
+
+- Input validation and malformed URLs.
+- Inaccessible websites and extraction failures.
+- Research and LLM timeouts.
+- Invalid LLM output.
+- Partial workflow failures.
+- Duplicate submissions.
+- Browser refresh during generation.
+- Backend unavailability.
+- Groq rate limits.
+- Large websites and token exhaustion.
+- Insufficient extracted content.
+
+Remaining Verification — FT_012:
+
+The insufficient-content scenario requires further verification to ensure the frontend clearly identifies reports with empty or meaningless extracted content as insufficient data, rather than presenting them as normal completed reports.
+
+4. Improvements Following Testing
+
+Testing observations led to several improvements:
+
+- Improved URL validation and handling of invalid inputs (FT_002, FT_003).
+- Defined and improved frontend behavior when users refresh during workflow execution (FT_010).
+- Documented and tested backend-unavailability behavior (FT_011).
+- Improved insufficient-data handling and API failure messages (FT_012–FT_014).
+
+
+5. Evaluation Scope
+
+The evaluation currently focuses on manually assessed report quality, workflow completion, failure handling, and execution latency.
+
+Token consumption and per-execution LLM costs have not yet been formally evaluated as part of the baseline testing
+
+
+
+# Known Limitations & Next Steps
+
+## Known Limitations
+
+Despite its current capabilities, Prospect AI has several limitations identified during development and testing.
+
+### 1. Website Extraction Limitations
+
+- Complex websites, particularly e-commerce websites with large product catalogs, are not extracted reliably.
+- Product-heavy websites can contain large amounts of repetitive or poorly structured content, making it difficult to identify the most relevant business information.
+
+### 2. LLM Research Reliability
+
+- Research results can be inconsistent, particularly in the Services and Company Overview sections.
+- Generated content sometimes mixes actual business information with marketing taglines, promotional language, or website copy.
+- This can affect the accuracy and usefulness of downstream qualification and strategy generation.
+
+### 3. Execution & Insufficient-Content Handling
+
+- The workflow may continue processing websites containing irrelevant, empty, or insufficient extracted content.
+- Such executions can consume additional processing time without producing useful results.
+- Frontend handling of these situations needs improvement to communicate insufficient data and execution problems more clearly.
+
+### 4. Infrastructure & Scalability Constraints
+
+- The current Azure VM has limited computational resources, restricting concurrent browser-based extraction and workflow execution.
+- Groq has regional availability restrictions that influence deployment choices.
+- Groq and Gemini API usage is subject to provider-specific request and usage limits.
+- The VM is not operated continuously due to infrastructure costs, affecting application availability.
+
+### 5. Report Quality Limitations
+
+- Report quality degrades when websites provide very limited information.
+- Reports generated for certain online stores and product-focused businesses may lack sufficient research depth and useful qualification insights.
+- In these cases, the system may struggle to produce relevant offers and personalized outreach.
+
+
+
+# Future Improvements
+
+The following areas represent the planned direction for improving Prospect AI:
+
+### 1. Improve Website Extraction & Crawling
+
+Develop better crawling strategies to handle complex websites, product-heavy businesses, and large websites more effectively. Improve content selection and extraction quality to prioritize relevant business information.
+
+### 2. Improve Research Quality & Grounding
+
+Improve research workflows to produce more consistent and evidence-based company overviews and service descriptions. Strengthen the separation between factual business information, promotional website copy, and inferred information.
+
+### 3. Enhance Existing Research & Refinement Tools
+
+Improve existing tools and introduce additional capabilities where necessary to gather missing information, refine research findings, and support more reliable downstream analysis.
+
+### 4. Improve Report Quality
+
+Enhance qualification reasoning, offer relevance, and outreach personalization, particularly for businesses with limited website information or product-focused business models.
+
+### 5. Improve Overall System Design
+
+Refine the system architecture to improve execution reliability, resource utilization, scalability, and workflow management as the application's requirements evolve.
+
+
+# Run locally
+
+The local development setup runs PostgreSQL in Docker and runs the FastAPI
+backend and static frontend directly on the host.
+
+### Prerequisites
+
+Install:
+
+- Python 3.12
+- Docker Desktop with Docker Compose
+- Git
+- A Groq API key (two keys are currently configured by the application)
+- A Gemini API key
+- A LangSmith API key
+
+Playwright Chromium is installed in a later step.
+
+### 1. Clone the repository
+
+```powershell
+git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
+Set-Location YOUR_REPOSITORY
+```
+
+Run all remaining commands from the repository root unless stated otherwise.
+
+### 2. Create and activate a virtual environment
+
+```powershell
+py -3.12 -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+If PowerShell prevents activation, use a terminal policy approved by your
+organization or activate the environment from Command Prompt with
+`venv\Scripts\activate.bat`.
+
+### 3. Install Python dependencies and Chromium
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirement.txt
+python -m playwright install chromium
+```
+
+### 4. Create `.env`
+
+Create a file named `.env` in the repository root. Do not commit it.
+
+```dotenv
+GROQ_API_KEY=your_groq_api_key
+GROQ_API_KEY_V2=your_second_groq_api_key
+GEMINI_API_KEY=your_gemini_api_key
+
+DB_USER=postgres
+DB_PASSWORD=your_local_postgres_password
+DB_HOST=localhost
+DB_PORT=5432
+
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_langsmith_api_key
+LANGSMITH_PROJECT=prospect-ai
+
+CORS_ORIGINS=["http://127.0.0.1:5500","http://localhost:5500"]
+```
+
+`CORS_ORIGINS` must be a JSON list because it is parsed as `list[str]`.
+`DB_HOST=localhost` is required when FastAPI runs on the host. The values for
+the API container are overridden to `DB_HOST=postgres` by Compose.
+
+### 5. Start PostgreSQL
+
+From the repository root:
+
+```powershell
+docker compose up -d postgres
+docker compose ps
+```
+
+Wait until the `postgres` service is healthy before continuing. The database is exposed on `localhost:5432`.
+
+### 6. Run database migrations
+
+With the virtual environment still activated:
+
+```powershell
+alembic upgrade head
+alembic current
+```
+
+### 7. Start the FastAPI backend
+
+Open a new terminal, return to the repository root, and activate the
+environment again:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The backend is available at
+`http://127.0.0.1:8000`; API documentation is available at
+`http://127.0.0.1:8000/docs`.
+
+### 8. Serve the frontend
+
+Open another terminal and run:
+
+```powershell
+Set-Location frontend
+python -m http.server 5500 --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:5500` in a browser. The frontend is already configured
+to call the local backend at `http://127.0.0.1:8000`.
+
+### 9. Stop local services
+
+Stop Uvicorn and the frontend server with `Ctrl+C`, then stop PostgreSQL:
+
+```powershell
+docker compose stop postgres
+```
+
+## Run the complete backend with Docker Compose
+
+This alternative runs PostgreSQL and FastAPI in containers. It also runs
+database migrations automatically before starting the API.
+
+1. Complete steps 1 and 4 above so the repository and `.env` exist.
+2. From the repository root, run:
+
+```powershell
+docker compose up --build -d
+docker compose ps
+docker compose logs -f api
+```
+
+The API is available at `http://127.0.0.1:8000`. Serve the frontend using
+step 8, then open `http://127.0.0.1:5500`.
+
+In this mode Compose uses the service hostname `postgres` internally; do not
+change the host-side `.env` value from `localhost` for this purpose.
+
+Stop the containerized services with:
+
+```powershell
+docker compose down
+```
+
+Add `-v` only if you intentionally want to remove the PostgreSQL data volume.
+
+
+## Project structure
+
+```text
+Prospect-Ai/
+├── api/                    # FastAPI application and HTTP endpoints
+│   └── main.py
+├── assets/                 # Static or supporting project assets
+├── config/                 # Settings, logging, and error handling
+├── database/               # PostgreSQL access, Redis, schema, and migrations
+│   └── migrations/
+├── evals/                  # Evaluation datasets and reports
+├── frontend/               # Vanilla HTML, CSS, and JavaScript client
+├── models/                 # Pydantic schemas and workflow state models
+├── outreach/               # Outreach generation and final report logic
+├── research/               # Website extraction, cleaning, and research agent
+├── strategy/               # Prospect strategy agent
+├── tools/                  # Search, media extraction, and supporting tools
+├── tests/                  # Automated tests
+├── .env                    # Local secrets and runtime configuration
+├── alembic.ini             # Alembic migration configuration
+├── compose.yml             # PostgreSQL, API services
+├── Dockerfile              # Container image definition
+├── orchestrator.py         # End-to-end workflow orchestration
+├── requirement.txt         # Python dependencies
+└── pytest.ini              # Pytest configuration
+```
+
+## Contact
+
+**Najam-ul-Hasan**  
+AI Engineer | LLM Systems & Workflow Development
