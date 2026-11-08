@@ -10,3 +10,4 @@ htmlcov/
 test.py
 __init__.py
 tests/
+pytest.ini
