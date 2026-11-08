@@ -4,5 +4,9 @@ logs/
 __pycache__/
 *.pyc
 /venv/
+.coverage
+coverage.xml
+htmlcov/
 test.py
 __init__.py
+tests/
