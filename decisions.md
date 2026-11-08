@@ -252,3 +252,7 @@ Why: Only the API-level failure is transient and worth retrying; everything else
 - SqliteSaver / AsyncSqliteSaver: rejected, adds a second database when Postgres exists, and async SQLite isn't recommended for production.
 - PostgresSaver (sync): rejected, blocks under concurrent load.
 **Open:** This assumes the orchestrator moves to LangGraph, which isn't decided yet. If it stays raw Python, this decision doesn't apply and checkpointing needs a separate design. Package names and async support were taken from a table and not checked against the current LangGraph docs. Verify before building.
+
+*#D25 addendum*
+**Decision**: Orchestrator Checkpointing is not implemented now — deferred.
+**Why**: Currently the target is to make the system more reliable first within given features so for now *D5 Deffered* and will be implemented in future.
