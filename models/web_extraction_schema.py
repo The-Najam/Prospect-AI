@@ -1,8 +1,6 @@
 from pydantic import BaseModel, HttpUrl
 
 
-
-
 class Page(BaseModel):
     url : HttpUrl
     page_type : str
