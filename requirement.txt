@@ -16,4 +16,3 @@ slowapi==0.1.10
 SQLAlchemy==2.1.5
 google-genai
 uvicorn[standard]
-langgraph-checkpoint-postgres
