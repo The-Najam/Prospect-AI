@@ -1,3 +1,5 @@
+
+# Importing Libraries
 from groq import Groq
 from config.settings import setting
 from models.research_tool_schema import offer_refine, offer_tool_input
@@ -6,7 +8,7 @@ from models.workflow_state import WorkflowState
 from config.logger import logger
 from langsmith import traceable, get_current_run_tree
 
-
+# Tracing Offer Refine Tool Call 
 @traceable(
     name="offer_refine_tool_call",
     run_type="tool",
@@ -15,16 +17,18 @@ from langsmith import traceable, get_current_run_tree
         "ls_model_name": setting.model,
     },
 )
+
+
+# Offer Refine Tool
 def offerrefine(strategy_result):
 
-    prompt = """ Act as an expert Offer Refiner. Your job is to improve the wording, clarity, framing, and persuasive strength
+    prompt = """ 
+    Act as an expert Offer Refiner. Your job is to improve the wording, clarity, framing, and persuasive strength
     of the offer using ONLY the information provided in the Strategy Result.
-
     You are NOT an offer creator.
     You must preserve the factual and semantic boundaries of the supplied strategy.
 
     ## CORE PRINCIPLE ##
-
     Preserve meaning, improve expression.
     You may:
     - Rewrite wording.
@@ -67,7 +71,6 @@ def offerrefine(strategy_result):
     ## FIELD-SPECIFIC RULES ##
 
     ### problem
-
     You may rewrite the problem for clarity or stronger framing.
     You must preserve:
     - What problem is being described.
@@ -150,90 +153,91 @@ def offerrefine(strategy_result):
 
     Never compensate for missing information by inventing information.
     """
-    print(type(strategy_result))
 
+    try:
+        client = Groq(api_key=setting.GROQ_API_KEY)
 
-    client = Groq(api_key=setting.GROQ_API_KEY)
-
-    chat_completions = client.chat.completions.create(
-        model=setting.model,
-        messages=[
-            {
-                "role" : "system",
-                "content" : prompt
-            },
-            {
-                "role" : "user",
-                "content" : strategy_result
-            }
-        ],
-        response_format = {
-            "type" : "json_object",
-            "json_object" : {
-                "name" : "offer_refine",
-                "strict" : True,
-                "schema" : offer_refine.model_json_schema()
-            }
-        }
-    )
-    response = chat_completions.choices[0].message.content
-    data = json.loads(response)
-    result = offer_refine(**data)
-    usage = getattr(chat_completions, "usage", None)
-    groq_tokens = getattr(usage, "total_tokens", 0) or 0
-
-    run = get_current_run_tree()
-    if run and usage:
-        run.set(
-            usage_metadata={
-                "input_tokens": usage.prompt_tokens,
-                "output_tokens": usage.completion_tokens,
-                "total_tokens": groq_tokens,
+        chat_completions = client.chat.completions.create(
+            model=setting.model,
+            messages=[
+                {
+                    "role" : "system",
+                    "content" : prompt
+                },
+                {
+                    "role" : "user",
+                    "content" : strategy_result
+                }
+            ],
+            response_format = {
+                "type" : "json_object",
+                "json_object" : {
+                    "name" : "offer_refine",
+                    "strict" : True,
+                    "schema" : offer_refine.model_json_schema()
+                }
             }
         )
 
-    print(result)
-    logger.info("OFFER REFINED SUCCESSFULLY!")
+        response = chat_completions.choices[0].message.content
+        data = json.loads(response)
+        result = offer_refine(**data)
+        usage = getattr(chat_completions, "usage", None)
+        groq_tokens = getattr(usage, "total_tokens", 0) or 0
 
-    return result, groq_tokens
+        run = get_current_run_tree()
+        if run and usage:
+            run.set(
+                usage_metadata={
+                    "input_tokens": usage.prompt_tokens,
+                    "output_tokens": usage.completion_tokens,
+                    "total_tokens": groq_tokens,
+                }
+            )
 
+        logger.info("OFFER REFINED SUCCESSFULLY!")
+        return result, groq_tokens
+    except Exception as e:
+        logger.error("Failed to Refine Offer!", exc_info=True)
+
+
+
+# Code for Unit testing and Debugging the module
 if __name__ == "__main__":
-    data =      result = {
-  "qualification": "strong",
-  "opportunity": {
-    "pain": [
-      "The company recently launched an online ordering system.",
-      "Customers can now place orders through the company's website."
-    ],
-    "fit": "strong",
-    "score": 8
-  },
-  "offer": {
-    "problem": "The online ordering experience may need improvement.",
-    "desirable_outcome": "A clearer and easier online ordering experience.",
-    "proof": "We help businesses improve online customer experiences.",
-    "low_risk": "Start with a small engagement focused on the current ordering experience.",
-    "value": "A simpler online ordering experience."
-  },
-  "reason": {
-    "reason": [
-      "The company has recently introduced online ordering.",
-      "The new ordering experience creates a relevant opportunity for improvement."
-    ]
-  },
-  "angle": {
-    "hooks": [
-      "New online ordering system",
-      "Online customer experience"
-    ],
-    "angle": "Improve the online ordering experience after the recent launch.",
-    "cta": "Open to hearing how?"
-  },
-  "channel": "linkedin"
-}
+    data = {
+    "qualification": "strong",
+    "opportunity": {
+        "pain": [
+        "The company recently launched an online ordering system.",
+        "Customers can now place orders through the company's website."
+        ],
+        "fit": "strong",
+        "score": 8
+    },
+    "offer": {
+        "problem": "The online ordering experience may need improvement.",
+        "desirable_outcome": "A clearer and easier online ordering experience.",
+        "proof": "We help businesses improve online customer experiences.",
+        "low_risk": "Start with a small engagement focused on the current ordering experience.",
+        "value": "A simpler online ordering experience."
+    },
+    "reason": {
+        "reason": [
+        "The company has recently introduced online ordering.",
+        "The new ordering experience creates a relevant opportunity for improvement."
+        ]
+    },
+    "angle": {
+        "hooks": [
+        "New online ordering system",
+        "Online customer experience"
+        ],
+        "angle": "Improve the online ordering experience after the recent launch.",
+        "cta": "Open to hearing how?"
+    },
+    "channel": "linkedin"
+    }
   
-
-
     result = {
         "pain" : data["opportunity"]["pain"],
         "problem" : data["offer"]["problem"],
@@ -245,6 +249,5 @@ if __name__ == "__main__":
     }
 
     strategy_result = offer_tool_input(**result)
-    print(type(strategy_result))
     strategy_result = strategy_result.model_dump_json()
     offerrefine(strategy_result)

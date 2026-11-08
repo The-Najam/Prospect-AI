@@ -1,3 +1,5 @@
+
+# importing Libraries
 from models.research_tool_schema import WebSearchResult
 from groq import Groq
 from config.settings import setting
@@ -6,6 +8,7 @@ from config.logger import logger
 from models.workflow_state import WorkflowState
 from langsmith import traceable,get_current_run_tree
 
+# tracing Web Search tool call
 @traceable(
     name="web_search_tool_call",
     run_type="tool",
@@ -14,6 +17,8 @@ from langsmith import traceable,get_current_run_tree
         "ls_model_name": setting.model,
     },
 )
+
+# Web Search tool 
 def search_web(industry, user_service):
     system_prompt = """
     ## ROLE ##
@@ -47,7 +52,6 @@ def search_web(industry, user_service):
     """
     try:
         client = Groq(api_key=setting.GROQ_API_KEY_V2)
-
         chat_completion = client.chat.completions.create(
             model="openai/gpt-oss-120b",
             messages=[
@@ -71,7 +75,6 @@ def search_web(industry, user_service):
         )
       
         response = chat_completion.choices[0].message.content
-        print(response)
         result = WebSearchResult(**json.loads(response))
         usage = getattr(chat_completion, "usage", None)
         groq_tokens = getattr(usage, "total_tokens", 0) or 0
@@ -85,12 +88,14 @@ def search_web(industry, user_service):
                     "total_tokens": groq_tokens,
                 }
             )
-
         return result, groq_tokens
 
     except Exception as e:
         logger.error("Failed to Research Industry!", exc_info=True)
-        raise
+
+
+
+
 
 if __name__ == "__main__":
     industry = "web designing"

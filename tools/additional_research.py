@@ -1,3 +1,5 @@
+#importing Libraries
+
 from groq import Groq
 from config.settings import setting
 from models.research_tool_schema import additional_research, AdditionalResearchInput
@@ -8,6 +10,7 @@ from config.logger import logger
 from google import genai
 from google.genai import types
 
+# tracing additional_search_tool_call
 @traceable(
     name="additional_search_tool_call",
     run_type="tool",
@@ -16,11 +19,12 @@ from google.genai import types
         "ls_model_name": setting.GEMINI_MODEL,
     },
 )
-def missing_info_research(company_data):
-    print("IN TOOL CALLL")
 
+
+def missing_info_research(company_data):
     if isinstance(company_data, AdditionalResearchInput):
         research_input = company_data
+
     elif isinstance(company_data, dict):
         research_input = AdditionalResearchInput(
             url=str(company_data.get("url") or company_data.get("website_url") or ""),
@@ -32,6 +36,7 @@ def missing_info_research(company_data):
 
     company_info = company_data.get("CompanyData", {}) if isinstance(company_data, dict) else {}
     company_name = ""
+
     if isinstance(company_info, dict):
         company_name_value = company_info.get("name", "")
         if isinstance(company_name_value, dict):
@@ -51,12 +56,9 @@ def missing_info_research(company_data):
 
     prompt = f"""
     You extract specific missing facts about a company from additional website pages.
-
     The input has several pages, each between page markers with a URL and page type.
     The page type is a hint and may be wrong.
-
     return the output as a valid JSON and in schema structure below.
-
     Return the result as valid JSON matching this schema exactly:
 
     {{
@@ -176,7 +178,6 @@ def missing_info_research(company_data):
         total_tokens = input_tokens + output_tokens
 
     run = get_current_run_tree()
-
     if run and usage:
         run.set(
             usage_metadata={
@@ -190,8 +191,10 @@ def missing_info_research(company_data):
     return result, total_tokens
 
 
+
+
+# demo data for unit testing 
 if __name__ == "__main__":
-   
     company_data = """{
 
         "CompanyData": {

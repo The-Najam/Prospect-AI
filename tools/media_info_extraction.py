@@ -1,25 +1,22 @@
-# from research.data_cleaner import content
+# importing Libraries
+
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from models.research_tool_schema import Bio_Extractor
 import asyncio
 import re
-import json
-from bs4 import BeautifulSoup
+from models.workflow_state import WorkflowState as state
 
-
+# Extract Social Media links from Homepage of Prospect's Website
 async def main():
     config = CrawlerRunConfig(
         exclude_social_media_links=False,
         css_selector="footer",
         excluded_tags = []
     )
-
+    url = state['prospect_url']
     async with AsyncWebCrawler() as crawler:
-        result = await crawler.arun(url="https://expando.com.pk/", config=config)
-
-
-    data = result.__dict__
-    print(type(data))
+        result = await crawler.arun(url=url, config=config)
+    
     urls = re.findall(r'https?://[^\s<>"\']+', result.markdown)
     social_domains = (
     'facebook.com',
@@ -36,11 +33,10 @@ async def main():
     social_urls = [
     url for url in urls
     if any(domain in url.lower() for domain in social_domains)]
-
     return social_urls
 
 
-
+# extracting bio and mapping it to platform
 results = []
 async def extraction(social_urls):
     config = CrawlerRunConfig(
@@ -68,18 +64,14 @@ async def extraction(social_urls):
         return results
 
 
-
-import re
-
+# Extracting Bio Based On Platforms
 def extract_platform_and_bio(text):
-
     # Instagram
     instagram = re.search(
         r'##\s+([^\n]+)\n\s*\*\s*\[\d+\s+followers\].*?\n\s*\*\s*\[\d+\s+following\].*?\n',
         text,
         re.IGNORECASE
     )
-
     if instagram:
         bio = text[instagram.end():]
 
@@ -92,12 +84,9 @@ def extract_platform_and_bio(text):
 
         if stop:
             bio = bio[:stop.start()]
-
         bio = re.sub(r'\[([^\]]*)\]\([^)]*', r'\1', bio)
         bio = re.sub(r'\]\(', '', bio)
-
         lines = [x.strip() for x in bio.splitlines() if x.strip()]
-
         return "Instagram", '\n'.join(lines)
 
     # Facebook
