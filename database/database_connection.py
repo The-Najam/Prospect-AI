@@ -2,6 +2,7 @@ import psycopg
 from models.workflow_state import WorkflowState
 from config.settings import setting
 
+# creating database connection
 def create_dbconnection():
 
     conn = psycopg.connect(
@@ -11,7 +12,6 @@ def create_dbconnection():
         host={setting.DB_HOST}
         port={setting.DB_PORT}"""
     )
-
     cur = conn.cursor()
     return conn, cur
 

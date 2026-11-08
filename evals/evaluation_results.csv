@@ -1,0 +1,21 @@
+Prospect ID	Automated checks	Manual scores	Meets minimum Message quality	Critical factual issue	Primary failure category	Usable	Workflow status	Retry	Latency	Overall score
+e08151c7-c879-452d-a16e-da7a376bde8e	6 / 6	11 / 18	No	Major	Research Failure	No	Succeed	No	48.8s	11/18  (61%)
+73e99b78-f0d9-459b-b244-ab0ca4fc45a3	2 / 6	N/A	N/A	Major	Web Extraction	No	Failed	Yes	87.85s	N/A
+04aa0156-a82d-4678-be4f-7045b1f508db	2 / 6	N/A	N/A	Major	Workflow Execution	No	Failed	Yes	86.40s	N/A
+1239f59a-fc93-4c66-9495-b28fa51fd71e	1 / 6	N/A	N/A	Major	Web Extraction	No	Failed	Yes	35.1s	N/A
+1ff59d75-d2cc-431f-873f-fb73d49c05be	6 / 6	13 / 18	Yes	Minor	Research Failure	YES	Succeed	No	34.72s	13/18 (72%)
+8111f2c1-cc1f-4f39-a809-cf36ca8c5500	6 / 6	11 / 18	Yes	Minor	Qualification Incorrect	Yes	Succeed	no	32.89s	11/18 (61%)
+5b838fee-499f-4c29-ae67-a9daffde6e20	6 / 6 	9 / 18	No	Major	Messaging	No	Succeed	No	36.97s	9 / 18 (50%)
+364d3fcb-3420-44e9-9f8d-b407fc7f7d53	6 / 6	13 / 18	Yes	Minor	Company Info-partial	Yes	Succeed	No	59.31s	13/18 (72%)
+996e7590-e40e-42d9-a858-5b8af60b1af7	6 / 6	13 / 18	Yes	Minor	Company Info	Yes	Succeed	No	23.05s	13 / 18 (72%)
+e3765cb2-250f-4a22-9fb1-3ff1510c42ea	2 / 6	N/A	No	Major	Workflow Execution	No	Failed	Yes	78.66s	N/A
+9fe140eb-c4a8-4d6c-99de-88a4fc5d18c2	6 / 6	14 / 18	Yes	N/A	N/A	Yes	Succeed	No	2.42m	14/18 (77%)
+061140bb-4bae-4e2b-b7f9-ea8d2a798be6	6 / 6	16 / 18	Yes	Minor	N/A	Yes	Succeed	No	93s	16/18 (88%)
+b8ab4318-c7a4-4042-85fd-dabb352434d5	6 / 6	17 / 18	Yes	N/A	N/A	Yes	Succeed	No	32.97s	17/18 (94%)
+8f1fe160-a184-4d4a-99cc-aedf524b52d3	6 / 6	13 / 18	Yes	Major	Company Info	Yes	Succeed	No	41.73s	13/18 (72%)
+afade88e-4978-43e0-b028-a59cb5c12a48	6/6	14 / 18	Yes	Major	Company Info	Yes	succeed	No	22.60s	14/18 (77%)
+42de2804-27bd-4761-93e5-005bdb956588	6 / 6	11 / 18	No	Major	Research Failure	No	Succeed	No	118.4s	11/18  (61%)
+70b6facd-1ee9-41f9-989d-b6e93d724583	6 / 6	12  / 18	Yes	Major	Company Info 	Yes	Succeed	No	35.39s	12/18 (66%)
+70ea24ea-e36b-4c0e-9ee3-7671d16122c3	1 / 6	N/A	N/A	Major	Web Extraction	No	Failed	Yes	35.1s	N/A
+5b7a9bcb-6ead-4d71-bab3-118fb3ee5e79	6 / 6	13 / 18	Yes	Major	Research Failure	Yes	Succeed	No	2.05m	13/18 (72%)
+654d98e1-a760-467a-85b6-c8e97ab39bf1	6 / 6	13 / 18	Yes	Major	Company Info - Services	Yes	Succeed	No	62.5s	13 / 18 (72%)

@@ -1,11 +1,11 @@
-from research.data_extraction import fetch_all, normalize_deduplicate_links, input_links, fetch_homepage, url_classification
-import asyncio
+# importing Libraries
 from bs4 import BeautifulSoup
 from models.web_extraction_schema import WebExtraction
 from config.logger import logger
 from models.workflow_state import WorkflowState
 
 
+# cleaning Html from Extracted Raw Content
 def clean_html(state:WorkflowState):
     content = []
     cleaned_content_attempts = state.get("cleaned_content_attempts", 0) + 1
@@ -15,20 +15,21 @@ def clean_html(state:WorkflowState):
         if not isinstance(html, (str, bytes)) or not html.strip():
             logger.warning("Skipping page with missing or empty HTML: %s", page.get("url"))
             continue
-
         url = page["url"]
         page_type = page["page_type"]
         soup = BeautifulSoup(html, "lxml")
 
         for tag in soup(["header", "nav", "footer", "script", "style"]):
             tag.decompose()
-
+            
         text = soup.get_text(" ", strip=True)
         if text:
             content.append({"url": url, "page_type": page_type, "content": text})
+    
+    
     logger.info(f"CLEANING CONTENT ATTEMPT : {cleaned_content_attempts}")
-    if not content:
-        
+
+    if not content:    
         logger.info(" No usable HTML content was fetched. Retrying Again!")
         return {
             "cleaned_content": content,
@@ -37,7 +38,6 @@ def clean_html(state:WorkflowState):
         
     else:
         clean_web_result = WebExtraction(pages=content)
-        print("Cleaning Content Completed", clean_web_result)
         return {
             "cleaned_content": clean_web_result.model_dump(mode="json"),
             "content_status": "success",
@@ -45,14 +45,7 @@ def clean_html(state:WorkflowState):
         }
 
 
-if __name__ == "__main__":
-    url = input_links()
-    page_content, links  = asyncio.run(fetch_homepage(url))
-    urls = normalize_deduplicate_links(links,url)
-    selected_pages_url = url_classification(urls)
-    selected_pages_url.append({"url":url, "page_type":"Home"})
-    page_content = asyncio.run(fetch_all(selected_pages_url))
-    content = clean_html(page_content)
+
 
 
 

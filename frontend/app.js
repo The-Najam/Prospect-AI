@@ -3,11 +3,14 @@
 const API_BASE_URL = "http://127.0.0.1:8000";
 const POLL_INTERVAL = 20000;
 const MAX_ATTEMPTS = 100;
+const SESSION_STORAGE_KEY = "prospect-ai-report-run";
 
 const form = document.getElementById("prospect-form");
 const submitButton = document.getElementById("submit-button");
 const reportSection = document.getElementById("report-section");
 const finalReport = document.getElementById("final-report");
+
+restoreReportSession();
 
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -32,6 +35,8 @@ form.addEventListener("submit", async (event) => {
         channel: formData.get("channel")
     };
 
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+
     try {
         const response = await fetch(`${API_BASE_URL}/get_input`, {
             method: "POST",
@@ -41,7 +46,10 @@ form.addEventListener("submit", async (event) => {
 
         if (!response.ok) {
             const details = await response.json();
-            throw new Error(JSON.stringify(details.detail, null, 2));
+            const message = Array.isArray(details.detail)
+                ? details.detail.map((item) => item.msg).join("; ")
+                : details.detail;
+            throw new Error(message || `Request failed with status ${response.status}`);
         }
 
         const data = await response.json();
@@ -50,9 +58,10 @@ form.addEventListener("submit", async (event) => {
             throw new Error("The backend did not return a run_id.");
         }
 
+        saveReportSession(payload, data.run_id);
         await pollForReport(data.run_id);
     } catch (error) {
-        renderMessage(error.message);
+        renderMessage(getRequestErrorMessage(error));
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = "Generate Report";
@@ -68,18 +77,117 @@ async function pollForReport(runId) {
         if (response.ok) {
             const data = await response.json();
 
-            if (data.report) {
+            if (data.status === "completed" && data.report) {
+                sessionStorage.removeItem(SESSION_STORAGE_KEY);
                 renderReport(data.report);
                 return;
             }
+
+            if (data.status === "failed") {
+                sessionStorage.removeItem(SESSION_STORAGE_KEY);
+                renderFailure(getReportFailureMessage(data.error));
+                return;
+            }
         } else if (response.status !== 404) {
-            throw new Error(`Report request failed with status ${response.status}`);
+            const details = await response.json().catch(() => null);
+            throw new Error(
+                details?.detail ||
+                `Report request failed with status ${response.status}`
+            );
         }
 
         await delay(POLL_INTERVAL);
     }
 
     throw new Error("The report was not generated within the expected time.");
+}
+
+function getReportFailureMessage(message) {
+    if (message && (
+        message.toLowerCase().includes("rate limit") ||
+        message.toLowerCase().includes("too many requests") ||
+        message.includes("429")
+    )) {
+        return "Report generation couldn't be completed because the website content exceeded the available processing capacity.";
+    }
+
+    return message;
+}
+
+function saveReportSession(payload, runId) {
+    sessionStorage.setItem(
+        SESSION_STORAGE_KEY,
+        JSON.stringify({ payload, runId })
+    );
+}
+
+function restoreReportSession() {
+    const savedSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
+
+    if (!savedSession) {
+        return;
+    }
+
+    try {
+        const { payload, runId } = JSON.parse(savedSession);
+
+        if (!payload || !runId) {
+            sessionStorage.removeItem(SESSION_STORAGE_KEY);
+            return;
+        }
+
+        form.elements.url.value = payload.url || "";
+        form.elements.user_service.value = payload.user_service || "";
+        form.elements.low_risk_offer.value = payload.low_risk_offer || "";
+        form.elements.proof.value = payload.proof || "";
+
+        const channelInput = form.querySelector(
+            `input[name="channel"][value="${CSS.escape(payload.channel || "")}"]`
+        );
+        if (channelInput) {
+            channelInput.checked = true;
+        }
+
+        renderGenerating();
+        submitButton.disabled = true;
+        submitButton.textContent = "Generating report...";
+        pollForReport(runId)
+            .catch((error) => renderMessage(getRequestErrorMessage(error)))
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = "Generate Report";
+            });
+    } catch (error) {
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        renderMessage("The saved report session could not be restored.");
+    }
+}
+
+function getRequestErrorMessage(error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+        return "Report generation couldn't be completed due to server down please try again later";
+    }
+
+    return error.message || "We could not generate the report this time.";
+}
+
+function renderGenerating() {
+    finalReport.replaceChildren();
+
+    const progressCard = document.createElement("div");
+    progressCard.className = "report-error";
+    progressCard.setAttribute("role", "status");
+
+    const heading = document.createElement("h3");
+    heading.textContent = "Report generation in progress";
+
+    const description = document.createElement("p");
+    description.textContent =
+        "Your saved inputs were restored. The report is still being generated.";
+
+    progressCard.append(heading, description);
+    finalReport.appendChild(progressCard);
+    reportSection.hidden = false;
 }
 
 function renderReport(report) {
@@ -105,7 +213,9 @@ function renderReport(report) {
         finalReport.appendChild(section);
     });
 
-    addDownloadButtons(normalizedReport);
+    if (Object.keys(normalizedReport).length > 0) {
+        addDownloadButtons(normalizedReport);
+    }
     reportSection.hidden = false;
 }
 
@@ -249,6 +359,7 @@ async function downloadPdf() {
         element.style.wordBreak = "normal";
         element.style.animation = "none";
         element.style.transition = "none";
+        element.style.color = "#172033";
     });
 
     reportClone.querySelectorAll(".report-card").forEach((card) => {
@@ -269,6 +380,14 @@ async function downloadPdf() {
         });
     });
 
+    reportClone.querySelectorAll(".report-content").forEach((content) => {
+        Object.assign(content.style, {
+            color: "#172033",
+            fontSize: "14px",
+            lineHeight: "1.6"
+        });
+    });
+
     reportClone.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach(
         (heading) => {
             Object.assign(heading.style, {
@@ -280,18 +399,38 @@ async function downloadPdf() {
                 fontSize: heading.tagName === "H3" ? "18px" : "16px",
                 fontWeight: "700",
                 lineHeight: "1.4",
+                letterSpacing: "0",
                 whiteSpace: "normal",
                 overflowWrap: "break-word"
             });
         }
     );
 
+    reportClone.querySelectorAll(".report-card h3").forEach((heading) => {
+        Object.assign(heading.style, {
+            marginBottom: "14px",
+            paddingBottom: "10px",
+            color: "#0f172a",
+            fontSize: "18px",
+            fontWeight: "700",
+            borderBottom: "2px solid #cbd5e1"
+        });
+    });
+
     reportClone.querySelectorAll("p").forEach((paragraph) => {
         Object.assign(paragraph.style, {
             margin: "0 0 10px 0",
+            color: "#172033",
             lineHeight: "1.6",
             whiteSpace: "normal",
             overflowWrap: "break-word"
+        });
+    });
+
+    reportClone.querySelectorAll("strong").forEach((label) => {
+        Object.assign(label.style, {
+            color: "#0f172a",
+            fontWeight: "700"
         });
     });
 
@@ -309,6 +448,7 @@ async function downloadPdf() {
             display: "list-item",
             margin: "0 0 8px 0",
             padding: "0",
+            color: "#172033",
             lineHeight: "1.6",
             whiteSpace: "normal",
             overflowWrap: "break-word"
@@ -390,8 +530,34 @@ function downloadFile(filename, content, type) {
 }
 
 function renderMessage(message) {
+    renderFailure(message);
+}
+
+function renderFailure(message) {
     finalReport.replaceChildren();
-    finalReport.textContent = message;
+
+    const errorCard = document.createElement("div");
+    errorCard.className = "report-error";
+    errorCard.setAttribute("role", "alert");
+
+    const heading = document.createElement("h3");
+    heading.textContent = "Report generation failed";
+
+    const description = document.createElement("p");
+    description.textContent =
+        message || "We could not generate the report this time.";
+
+    const retryButton = document.createElement("button");
+    retryButton.type = "button";
+    retryButton.className = "report-retry";
+    retryButton.textContent = "Regenerate report";
+    retryButton.addEventListener("click", () => {
+        reportSection.hidden = true;
+        form.requestSubmit();
+    });
+
+    errorCard.append(heading, description, retryButton);
+    finalReport.appendChild(errorCard);
     reportSection.hidden = false;
 }
 

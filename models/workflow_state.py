@@ -28,7 +28,7 @@ class WorkflowState(TypedDict):
     gemini_tokens : Annotated[int, operator.add]
     groq_tokens : Annotated[int, operator.add]
     phase : str
-
+    error_message : str | None
 
 
 
