@@ -1,6 +1,6 @@
 // filepath: d:\Python\Python Programs\Prospect-Ai\frontend\app.js
 
-const API_BASE_URL = "https://prospectai.swedencentral.cloudapp.azure.com";
+const API_BASE_URL = "http://127.0.0.1:8000";
 const POLL_INTERVAL = 20000;
 const MAX_ATTEMPTS = 100;
 
