@@ -1,3 +1,7 @@
+## ***NOTE : This Testing Based On Old Schema Design***
+
+
+
 # Test STR-01 — No Tool Call
 
 ## Objective
@@ -360,11 +364,11 @@ User Proof: "5 years of experience helping businesses improve their online prese
 User Low-Risk Offer: "Free initial SEO assessment"
 
 ## Expected Result
-opportunity.pain should be [].
-No unsupported SEO problems should be invented.
-No urgency or timing should be manufactured.
-No unsupported offer should be created.
-A valid Strategy_result should be returned.
+- opportunity.pain should be [].
+- No unsupported SEO problems should be invented.
+- No urgency or timing should be manufactured.
+- No unsupported offer should be created.
+- A valid Strategy_result should be returned.
 
 ## Actual Result
 qualification=<Qualification.weak: 'weak'>

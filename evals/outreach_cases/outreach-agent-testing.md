@@ -1,3 +1,6 @@
+## ***NOTE : This Testing Based On Old Schema Design***
+
+
 # T01 — Instagram Happy Path
 
 ## Objective
@@ -32,21 +35,25 @@ Verify that a valid strong strategy produces a grounded Instagram DM using only 
   },
   "channel": "instagram"
 }
-Expected Output
-Plaintext
+```
+
+## Expected Output
+```text
 channel = "instagram"
 
 outreach_msg:
   message = grounded Instagram DM
   subject_line = ""
   cta = simple low-friction CTA
-Actual Output
-Python
+```
+## Actual Output
+```python
 channel='instagram'
 outreach_msg=DM(
   message='Your team is actively hiring software engineers. Many fast-growing tech companies hit a bottleneck when their careers page doesn’t attract the right talent. I design modern, mobile-friendly, SEO-optimized careers sites that showcase tech culture and improve candidate quality. With 6+ years of experience, I can put together a quick mock of a tailored careers page for you—free demo, no commitment.'
 )
-Passed Checks
+```
+## Passed Checks
 Correct channel: instagram
 
 Valid Pydantic output
@@ -55,7 +62,7 @@ Complete DM generated
 
 Uses the supplied hiring information
 
-Failed Checks
+## Failed Checks
 Uses only prospect information from input
 
 Uses only the supplied offer
@@ -72,7 +79,7 @@ Avoids invented outcomes
 
 Avoids invented offer mechanisms
 
-Failures
+## Failures
 Unsupported prospect claim: "Many fast-growing tech companies hit a bottleneck..."
 
 Invented prospect problem: "their careers page doesn’t attract the right talent"
@@ -89,232 +96,225 @@ Strategy deviation: The generated offer is substantially different from the supp
 
 CTA deviation: Supplied CTA: "Open to hearing how?" — Generated CTA is effectively replaced by the free-demo offer.
 
-Status
+## Status
 FAIL
 
-```
-T02 — LinkedIn Happy Path
-=========================
+# T02 — LinkedIn Happy Path
 
-Objective
----------
+## Objective
 
 Verify that a valid strong strategy produces a grounded LinkedIn DM using only the supplied strategy.
 
-Input
------
+## Input
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   {    "qualification": "strong",    "opportunity": {      "pain": ["The company is actively hiring software engineers."],      "fit": "strong",      "score": 85    },    "offer": {      "problem": "Difficulty hiring qualified software engineers efficiently.",      "desirable_outcome": "Build a stronger engineering hiring pipeline.",      "proof": "We help companies improve their software engineering hiring process.",      "low_risk": "Start with a small, focused engagement.",      "value": "A more efficient way to identify and engage relevant engineering candidates."    },    "reason": {      "reason": [        "The company is actively hiring software engineers.",        "The hiring activity indicates a relevant opportunity for engineering recruitment support."      ]    },    "angle": {      "hooks": ["Active software engineering hiring"],      "angle": "Help make engineering hiring more efficient.",      "cta": "Open to hearing how?"    },    "channel": "linkedin"  }   `
+```json
+{    "qualification": "strong",    "opportunity": {      "pain": ["The company is actively hiring software engineers."],      "fit": "strong",      "score": 85    },    "offer": {      "problem": "Difficulty hiring qualified software engineers efficiently.",      "desirable_outcome": "Build a stronger engineering hiring pipeline.",      "proof": "We help companies improve their software engineering hiring process.",      "low_risk": "Start with a small, focused engagement.",      "value": "A more efficient way to identify and engage relevant engineering candidates."    },    "reason": {      "reason": [        "The company is actively hiring software engineers.",        "The hiring activity indicates a relevant opportunity for engineering recruitment support."      ]    },    "angle": {      "hooks": ["Active software engineering hiring"],      "angle": "Help make engineering hiring more efficient.",      "cta": "Open to hearing how?"    },    "channel": "linkedin"  }
+```
 
-Expected Output
----------------
+## Expected Output
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   channel = "linkedin"  outreach_msg:    message = grounded LinkedIn DM    subject_line = ""    cta = simple low-friction CTA   `
+```text
+channel = "linkedin"  outreach_msg:    message = grounded LinkedIn DM    subject_line = ""    cta = simple low-friction CTA
+```
 
-Actual Output
--------------
+## Actual Output
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   channel='linkedin'  outreach_msg=DM(    message='Hey [Name], I saw you’re actively hiring software engineers. Companies in that spot often hit a bottleneck turning interest into qualified candidates. I’ve spent 6+ years building conversion-focused web experiences for tech firms, and I can spin up a custom careers landing page that surfaces the right talent faster and cheaper. We can start with a free demo to see if it fits your process.\n\n'  )   `
+```python
+channel='linkedin'  outreach_msg=DM(    message='Hey [Name], I saw you’re actively hiring software engineers. Companies in that spot often hit a bottleneck turning interest into qualified candidates. I’ve spent 6+ years building conversion-focused web experiences for tech firms, and I can spin up a custom careers landing page that surfaces the right talent faster and cheaper. We can start with a free demo to see if it fits your process.\n\n'  )
+```
 
-Passed Checks
--------------
+## Passed Checks
 
 *   Correct channel: linkedin
-    
-*   Valid Pydantic output
-    
-*   Complete DM generated
-    
-*   References the supplied hiring activity
-    
 
-Failed Checks
--------------
+*   Valid Pydantic output
+
+*   Complete DM generated
+
+*   References the supplied hiring activity
+
+## Failed Checks
 
 *   Uses only supplied prospect information
-    
-*   Uses only the supplied offer
-    
-*   Uses the supplied strategy angle
-    
-*   Uses the supplied CTA
-    
-*   Avoids unsupported sender claims
-    
-*   Avoids unsupported prospect claims
-    
-*   Avoids unsupported outcomes
-    
-*   Avoids invented offer mechanisms
-    
 
-Failures
---------
+*   Uses only the supplied offer
+
+*   Uses the supplied strategy angle
+
+*   Uses the supplied CTA
+
+*   Avoids unsupported sender claims
+
+*   Avoids unsupported prospect claims
+
+*   Avoids unsupported outcomes
+
+*   Avoids invented offer mechanisms
+
+## Failures
 
 1.  **Unsupported personal observation**
-    
-    *   "I saw you’re actively hiring software engineers."
-        
-    *   The strategy states the fact but does not establish that the sender personally observed it.
-        
-2.  **Unsupported consequence**
-    
-    *   "Companies in that spot often hit a bottleneck turning interest into qualified candidates."
-        
-3.  **Unsupported sender claim**
-    
-    *   "I’ve spent 6+ years building conversion-focused web experiences for tech firms."
-        
-4.  **Invented offer**
-    
-    *   "custom careers landing page"
-        
-5.  **Unsupported outcome**
-    
-    *   "surfaces the right talent faster and cheaper"
-        
-6.  **Invented mechanism**
-    
-    *   "free demo"
-        
-7.  **CTA deviation**
-    
-    *   Strategy CTA: "Open to hearing how?"
-        
-    *   Generated CTA asks the prospect to evaluate a demo.
-        
-8.  **Strategy deviation**
-    
-    *   The generated message shifts from engineering hiring support to careers-site/web development.
-        
 
-Status
-------
+    *   "I saw you’re actively hiring software engineers."
+
+    *   The strategy states the fact but does not establish that the sender personally observed it.
+
+2.  **Unsupported consequence**
+
+    *   "Companies in that spot often hit a bottleneck turning interest into qualified candidates."
+
+3.  **Unsupported sender claim**
+
+    *   "I’ve spent 6+ years building conversion-focused web experiences for tech firms."
+
+4.  **Invented offer**
+
+    *   "custom careers landing page"
+
+5.  **Unsupported outcome**
+
+    *   "surfaces the right talent faster and cheaper"
+
+6.  **Invented mechanism**
+
+    *   "free demo"
+
+7.  **CTA deviation**
+
+    *   Strategy CTA: "Open to hearing how?"
+
+    *   Generated CTA asks the prospect to evaluate a demo.
+
+8.  **Strategy deviation**
+
+    *   The generated message shifts from engineering hiring support to careers-site/web development.
+
+## Status
 
 **FAIL**
 
-T03 — Facebook Happy Path
-=========================
+# T03 — Facebook Happy Path
 
-Objective
----------
+## Objective
 
-Verify that a valid strong strategy produces a grounded Facebook DM using only the supplied strategy.
+Verify that a valid strong strategy produces a grounded Facebook DM using only
+the supplied strategy.
 
-Input
------
+## Input
 
-Plain 
-`   {    "qualification": "strong",    "opportunity": {      "pain": ["The company is actively hiring software engineers."],      "fit": "strong",      "score": 85    },    "offer": {      "problem": "Difficulty hiring qualified software engineers efficiently.",      "desirable_outcome": "Build a stronger engineering hiring pipeline.",      "proof": "We help companies improve their software engineering hiring process.",      "low_risk": "Start with a small, focused engagement.",      "value": "A more efficient way to identify and engage relevant engineering candidates."    },    "reason": {      "reason": [        "The company is actively hiring software engineers.",        "The hiring activity indicates a relevant opportunity for engineering recruitment support."      ]    },    "angle": {      "hooks": ["Active software engineering hiring"],      "angle": "Help make engineering hiring more efficient.",      "cta": "Open to hearing how?"    },    "channel": "facebook"  }   `
+```json
+{
+  "qualification": "strong",
+  "opportunity": {
+    "pain": ["The company is actively hiring software engineers."],
+    "fit": "strong",
+    "score": 85
+  },
+  "offer": {
+    "problem": "Difficulty hiring qualified software engineers efficiently.",
+    "desirable_outcome": "Build a stronger engineering hiring pipeline.",
+    "proof": "We help companies improve their software engineering hiring process.",
+    "low_risk": "Start with a small, focused engagement.",
+    "value": "A more efficient way to identify and engage relevant engineering candidates."
+  },
+  "reason": {
+    "reason": [
+      "The company is actively hiring software engineers.",
+      "The hiring activity indicates a relevant opportunity for engineering recruitment support."
+    ]
+  },
+  "angle": {
+    "hooks": ["Active software engineering hiring"],
+    "angle": "Help make engineering hiring more efficient.",
+    "cta": "Open to hearing how?"
+  },
+  "channel": "facebook"
+}
+```
 
-Expected Output
----------------
+## Expected Output
 
-Plain `   channel = "facebook"  subject_line = ""  message = grounded Facebook DM  cta = simple low-friction CTA   `
+```text
+channel = "facebook"
+subject_line = ""
+message = grounded Facebook DM
+cta = simple low-friction CTA
+```
 
-Actual Output
--------------
+## Actual Output
 
-Plain 
-`   channel='facebook'  outreach_msg=DM(    message='Your team is actively hiring software engineers. When hiring ramps up, generic career pages often attract unqualified applicants, slowing the pipeline. We specialize in web design for engineering careers pages – our recent work lifted engineering applicant volume by 40% for similar tech firms, giving recruiters a steadier flow of qualified candidates. I can put together a free demo of a custom landing page tailored to your roles, no commitment required. Open to a quick look?'  )   `
+```python
+channel = "facebook"
+outreach_msg = DM(
+    message="Your team is actively hiring software engineers. When hiring ramps up, generic career pages often attract unqualified applicants, slowing the pipeline. We specialize in web design for engineering careers pages – our recent work lifted engineering applicant volume by 40% for similar tech firms, giving recruiters a steadier flow of qualified candidates. I can put together a free demo of a custom landing page tailored to your roles, no commitment required. Open to a quick look?"
+)
+```
 
-Passed Checks
--------------
+## Passed Checks
 
-*   Correct channel: facebook
-    
-*   Valid Pydantic output
-    
-*   Complete DM generated
-    
-*   Uses supplied hiring information
-    
-*   subject\_line appropriately absent for DM
-    
+- Correct channel: facebook
+- Valid Pydantic output
+- Complete DM generated
+- Uses supplied hiring information
+- `subject_line` appropriately absent for DM
 
-Failed Checks
--------------
+## Failed Checks
 
-*   Uses only supplied prospect information
-    
-*   Uses only supplied offer
-    
-*   Uses supplied strategy angle
-    
-*   Uses supplied proof
-    
-*   Uses supplied CTA
-    
-*   Avoids unsupported consequences
-    
-*   Avoids invented sender claims
-    
-*   Avoids invented offer
-    
-*   Avoids invented outcomes
-    
+- Uses only supplied prospect information
+- Uses only supplied offer
+- Uses supplied strategy angle
+- Uses supplied proof
+- Uses supplied CTA
+- Avoids unsupported consequences
+- Avoids invented sender claims
+- Avoids invented offer
+- Avoids invented outcomes
 
-Failures
---------
+## Failures
 
-1.  **Unsupported prospect consequence**
-    
-    *   "generic career pages often attract unqualified applicants, slowing the pipeline"
-        
-2.  **Invented offer**
-    
-    *   "web design for engineering careers pages"
-        
-3.  **Unsupported proof**
-    
-    *   "lifted engineering applicant volume by 40%"
-        
-4.  **Invented outcome**
-    
-    *   "giving recruiters a steadier flow of qualified candidates"
-        
-5.  **Invented mechanism**
-    
-    *   "free demo of a custom landing page"
-        
-6.  **CTA deviation**
-    
-    *   Expected: "Open to hearing how?"
-        
-    *   Actual: "Open to a quick look?"
-        
-7.  **Strategy deviation**
-    
-    *   The generated message changes the offer from engineering hiring efficiency to careers-page/web design.
-        
+1. **Unsupported prospect consequence:** "generic career pages often attract
+   unqualified applicants, slowing the pipeline."
+2. **Invented offer:** "web design for engineering careers pages."
+3. **Unsupported proof:** "lifted engineering applicant volume by 40%."
+4. **Invented outcome:** "giving recruiters a steadier flow of qualified
+   candidates."
+5. **Invented mechanism:** "free demo of a custom landing page."
+6. **CTA deviation:** Expected "Open to hearing how?"; actual "Open to a quick
+   look?"
+7. **Strategy deviation:** The generated message changes the offer from
+   engineering hiring efficiency to careers-page/web design.
 
-Status
-------
+## Status
 
 **FAIL**
 
 # T04 — Email Happy Path
 
- ========================
-
- ## Objective
+## Objective
 
  Verify email-specific output structure and grounded message generation.
 
- ## Input
+## Input
 
- Plain
+```text
+No input provided.
+```
 
- `No input provided.`
+## Expected Output
 
- ## Expected Output
+```text
+channel = "email"
+subject_line = non-empty
+message = email body
+cta = low-friction CTA
+```
 
- Plain `channel = "email" subject_line = non-empty message = email body cta = low-friction CTA`
+## Actual Output
 
- ## Actual Output
-
- Plain\
- \`channel='email' outreach\_msg=DM( message='Hi,
+```python
+channel = "email"
+outreach_msg = DM(
+    message="Hi,
 
  I saw you’re actively hiring software engineers. Scaling that pipeline efficiently can be a challenge—especially finding qualified candidates without drowning in noise.
 
@@ -322,19 +322,21 @@ Status
 
  Would a short, no-commitment demo be useful to see if we can help your team?
 
- Best,\
- \[Your Name\]' )\`
+Best,
+[Your Name]"
+)
+```
 
- ## Passed Checks
+## Passed Checks
 
  - Correct channel: email
 - Valid Pydantic output
 - Complete message generated
 - Uses supplied hiring information
 
- ## Failed Checks
+## Failed Checks
 
- - subject\_line present
+- subject_line present
 - Correct email output structure
 - Uses supplied proof only
 - Uses supplied low-risk mechanism
@@ -342,9 +344,9 @@ Status
 - Avoids invented sender/prospect information
 - Uses supplied CTA
 
- ## Failures
+## Failures
 
- 1. **Missing email subject line**
+1. **Missing email subject line**
 2. **Wrong output type**
    - Returned DM instead of email structure.
 3. **Unsupported observation**
@@ -361,206 +363,172 @@ Status
 9. **Strategy deviation**
    - Generated content substantially changes the supplied offer.
 
- ## Status
+## Status
 
  **FAIL**
 
 # T05 — Weak Offer → Refine
 
-=========================
+## Input
 
-Test Input
-
-Plain
+```json
 { "qualification": "weak", "opportunity": { "pain": [ "The company is actively hiring software engineers." ], "fit": "weak", "score": 35 }, "offer": { "problem": "Difficulty hiring software engineers.", "desirable_outcome": "Improve engineering hiring.", "proof": "We provide hiring support.", "low_risk": "Start with a small engagement.", "value": "More efficient engineering recruitment." }, "reason": { "reason": [ "The offer has weak differentiation.", "The current opportunity fit is limited." ] }, "angle": { "hooks": [ "Active software engineering hiring" ], "angle": "Help improve engineering hiring efficiency.", "cta": "Open to hearing how?" }, "channel": "instagram" }
+```
 
-Expected Output
+## Expected Output
 
+```text
 A valid Instagram Outreach_Message using the refined offer, while remaining grounded in the supplied research and strategy.
+```
 
-Actual Output
+## Actual Output
 
-Plain channel='instagram' outreach_msg=DM( message='I noticed you’re actively hiring software engineers. Finding the right talent fast can be a real bottleneck. We run a ready-to-run recruitment engine that delivers vetted engineers on demand—companies using it have filled roles up to twice as fast and cut hiring costs by around 30%. It’s backed by 6+ years building hiring systems for tech firms and real case studies. I can share a free, no-commitment demo of the pipeline so you can see it in action.\n\nWhat do you think?' )
+```python
+channel='instagram' outreach_msg=DM( message='I noticed you’re actively hiring software engineers. Finding the right talent fast can be a real bottleneck. We run a ready-to-run recruitment engine that delivers vetted engineers on demand—companies using it have filled roles up to twice as fast and cut hiring costs by around 30%. It’s backed by 6+ years building hiring systems for tech firms and real case studies. I can share a free, no-commitment demo of the pipeline so you can see it in action.\n\nWhat do you think?' )
+```
 
-Passed Checks
+## Passed Checks
 
-Weak qualification was processed successfully.
+- Weak qualification was processed successfully.
+- Refinement → outreach flow completed without exception.
+- Final channel is instagram.
+- Final output was returned successfully.
+- Output contains a complete Instagram DM.
 
-Refinement → outreach flow completed without exception.
+## Failed Checks
 
-Final channel is instagram.
+- **Unsupported personal observation:** "I noticed you're actively hiring" — the input states the hiring activity but does not establish that the sender personally observed it.
 
-Final output was returned successfully.
+- **Unsupported consequence:** "Finding the right talent fast can be a real bottleneck" is not explicitly supported.
 
-Output contains a complete Instagram DM.
+- **Unsupported offer:** "ready-to-run recruitment engine" was not present in the original strategy.
 
-Failed Checks
+- **Unsupported mechanism/claim:** "delivers vetted engineers on demand" was not supported.
 
-Unsupported personal observation: "I noticed you're actively hiring" — the input states the hiring activity but does not establish that the sender personally observed it.
+- **Fabricated proof:** "filled roles up to twice as fast" and "cut hiring costs by around 30%" were not supplied.
 
-Unsupported consequence: "Finding the right talent fast can be a real bottleneck" is not explicitly supported.
+- **Fabricated sender proof:** "6+ years building hiring systems for tech firms" was not supplied.
 
-Unsupported offer: "ready-to-run recruitment engine" was not present in the original strategy.
+- **Fabricated evidence:** "real case studies" was not supplied.
 
-Unsupported mechanism/claim: "delivers vetted engineers on demand" was not supported.
+- **Fabricated low-risk mechanism:** "free, no-commitment demo" was not supplied.
 
-Fabricated proof: "filled roles up to twice as fast" and "cut hiring costs by around 30%" were not supplied.
+- **CTA deviation:** "What do you think?" does not match the supplied CTA "Open to hearing how?".
 
-Fabricated sender proof: "6+ years building hiring systems for tech firms" was not supplied.
+- **Grounding failure:** refinement produced a materially different offer containing multiple unsupported claims.
 
-Fabricated evidence: "real case studies" was not supplied.
+## Failures
 
-Fabricated low-risk mechanism: "free, no-commitment demo" was not supplied.
-
-CTA deviation: "What do you think?" does not match the supplied CTA "Open to hearing how?".
-
-Grounding failure: refinement produced a materially different offer containing multiple unsupported claims.
-
-Failures
-
-Unsupported personal observation
-
+- Unsupported personal observation
 "I noticed you're actively hiring" — the input states the hiring activity but does not establish that the sender personally observed it.
 
-Unsupported consequence
-
+- Unsupported consequence
 "Finding the right talent fast can be a real bottleneck" is not explicitly supported.
 
-Unsupported offer
-
+- Unsupported offer
 "ready-to-run recruitment engine" was not present in the original strategy.
 
-Unsupported mechanism/claim
-
+- Unsupported mechanism/claim
 "delivers vetted engineers on demand" was not supported.
 
-Fabricated proof
-
+- Fabricated proof
 "filled roles up to twice as fast" and "cut hiring costs by around 30%" were not supplied.
 
-Fabricated sender proof
-
+- Fabricated sender proof
 "6+ years building hiring systems for tech firms" was not supplied.
 
-Fabricated evidence
-
+- Fabricated evidence
 "real case studies" was not supplied.
 
-Fabricated low-risk mechanism
-
+- Fabricated low-risk mechanism
 "free, no-commitment demo" was not supplied.
 
-CTA deviation
-
+- CTA deviation
 "What do you think?" does not match the supplied CTA "Open to hearing how?".
 
-Grounding failure
+- Grounding failure
+* Refinement produced a materially different offer containing multiple unsupported claims.
 
-*   Refinement produced a materially different offer containing multiple unsupported claims.
-
-Status
+## Status
 
 FAIL
 
-
 # T06 — Weak Offer + Email
 
-=========================
+## Input
 
-Test Input
-
-Plain
+```python
 { "qualification": "weak", "opportunity": { "pain": [ "The company is actively hiring software engineers." ], "fit": "weak", "score": 30 }, "offer": { "problem": "Difficulty hiring software engineers.", "desirable_outcome": "Improve engineering hiring.", "proof": "We provide hiring support.", "low_risk": "Start with a small engagement.", "value": "More efficient engineering recruitment." }, "reason": { "reason": [ "The current offer is weak.", "The opportunity has limited fit." ] }, "angle": { "hooks": [ "Active software engineering hiring" ], "angle": "Help improve engineering hiring efficiency.", "cta": "Open to hearing how?" }, "channel": "email" }
+```
 
-Expected Output
+## Expected Output
 
-A valid email Outreach_Message with:
+- A valid email Outreach_Message with:
+- channel == "email"
+- Non-empty subject_line
+- Complete email body
+- Refined offer incorporated
+- No unsupported prospect observations
+- No fabricated consequences or outcomes
+- No fabricated sender experience or proof
+- No invented mechanisms such as a free demo
+- CTA consistent with the supplied strategy
+- No exception during refine → outreach flow
 
-channel == "email"
+## Actual Output
 
-Non-empty subject_line
-
-Complete email body
-
-Refined offer incorporated
-
-No unsupported prospect observations
-
-No fabricated consequences or outcomes
-
-No fabricated sender experience or proof
-
-No invented mechanisms such as a free demo
-
-CTA consistent with the supplied strategy
-
-No exception during refine → outreach flow
-
-Actual Output
-
-Plain
-`channel='email'
+```python
+channel='email'
 outreach_msg=DM(
 message='Your team is actively hiring software engineers, and scaling that pipeline can get tricky. Many companies hit bottlenecks when trying to keep quality while moving fast. We specialize in hiring support that makes recruitment more efficient, and we can start with a small engagement – even a free demo – to surface quick wins without heavy commitment.
 
 If you’re open to hearing how we could help streamline your hiring process, just reply and we’ll take it from there.'
-)`
+)
+```
 
-Failures
+## Failures
 
-Wrong output structure
+- Wrong output structure
+- Returned DM(message=...) instead of an email structure containing subject_line, message, and cta.
+- Missing subject
+- No subject_line was returned.
+- Unsupported consequence
+- "scaling that pipeline can get tricky" is not explicitly supported.
+- Unsupported generalization
+- "Many companies hit bottlenecks when trying to keep quality while moving fast" was not supplied.
 
-Returned DM(message=...) instead of an email structure containing subject_line, message, and cta.
+## Unsupported outcome
 
-Missing subject
+- "surface quick wins" was not supplied.
 
-No subject_line was returned.
-
-Unsupported consequence
-
-"scaling that pipeline can get tricky" is not explicitly supported.
-
-Unsupported generalization
-
-"Many companies hit bottlenecks when trying to keep quality while moving fast" was not supplied.
-
-Unsupported outcome
-
-"surface quick wins" was not supplied.
-
-Invented mechanism
+## Invented mechanism
 
 "even a free demo" was not supplied.
 
-CTA deviation
+## CTA deviation
 
 The supplied CTA was "Open to hearing how?", but the generated CTA is materially different.
 
-Grounding failure
+## Grounding failure
 
 The message introduces multiple claims beyond the research/strategy.
 
-Passed Checks
+## Passed Checks
 
 Refine → outreach flow completed.
-
 Final channel value is "email".
-
 A complete outreach message was returned.
-
 No runtime exception occurred.
 
-Status
+## Status
 
 FAIL
 
-
-
-
 # T07 — Medium Offer Decision
 
-=========================
-Input:
+## Input
+
+```python
 {
   "qualification": "medium",
   "opportunity": {
@@ -592,9 +560,9 @@ Input:
   },
   "channel": "linkedin"
 }
+```
 
-
-Expected Output
+## Expected Output
 
 A valid LinkedIn Outreach_Message where:
 
@@ -616,54 +584,55 @@ CTA remains consistent with the supplied strategy.
 
 No exception occurs.
 
-Actual Output
+## Actual Output
 
-Plain
-channel='linkedin' outreach_msg=DM( message='Hi,\n\nI saw you’re actively hiring software engineers. Many tech teams find that a focused, conversion-oriented careers page can shave weeks off the hiring cycle. With 6+ years designing such pages for engineering groups, I’ve helped companies make their recruiting funnel more efficient without a full-scale overhaul.\n\nIf you’re open to it, I can put together a quick mock-up of a careers page tailored to the talent you’re targeting. It’s a low-commitment step – we can start with a free demo and see if it adds value.\n\nLet me know if that sounds useful.' )
+```python
+channel='linkedin' 
+outreach_msg=DM( message='Hi,\n\nI saw you’re actively hiring software engineers. Many tech teams find that a focused, conversion-oriented careers page can shave weeks off the hiring cycle. With 6+ years designing such pages for engineering groups, I’ve helped companies make their recruiting funnel more efficient without a full-scale overhaul.\n\nIf you’re open to it, I can put together a quick mock-up of a careers page tailored to the talent you’re targeting. It’s a low-commitment step – we can start with a free demo and see if it adds value.\n\nLet me know if that sounds useful.' )
+```
+## Failures
 
-Failures
-
-Unsupported personal observation
+## Unsupported personal observation
 
 "I saw you’re actively hiring" — the research states the hiring activity but does not establish firsthand observation.
 
-Invented offer
+## Invented offer
 
 "conversion-oriented careers page" / "mock-up of a careers page" is not in the supplied offer.
 
-Unsupported consequence
+## Unsupported consequence
 
 "shave weeks off the hiring cycle" is not supported.
 
-Unsupported generalization
+## Unsupported generalization
 
 "Many tech teams find..." is not supported.
 
-Fabricated sender proof
+## Fabricated sender proof
 
 "6+ years designing such pages" is not supplied.
 
-Fabricated outcome
+## Fabricated outcome
 
 "I’ve helped companies make their recruiting funnel more efficient" is not supplied.
 
-Unsupported mechanism
+## Unsupported mechanism
 
 "without a full-scale overhaul" is not supplied.
 
-Invented free demo
+## Invented free demo
 
 "start with a free demo" is not supported.
 
-CTA deviation
+## CTA deviation
 
 "Let me know if that sounds useful" differs from the supplied "Open to hearing how?".
 
-Grounding failure
+## Grounding failure
 
 The message substantially changes the original offer.
 
-Passed Checks
+## Passed Checks
 
 channel == "linkedin".
 
@@ -675,15 +644,14 @@ No subject_line was included, which is appropriate for LinkedIn.
 
 Execution completed without an exception.
 
-Status
+## Status
 
 FAIL
 
-
 # T08 — Minimal Research
-======================
-Input
+## Input
 
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -715,73 +683,67 @@ Input
   "channel": "instagram"
 }
 
+```
+## Expected Output
 
-
-Expected Output
----------------
-
-A valid Instagram Outreach\_Message where:
+A valid Instagram Outreach_Message where:
 
 *   channel == "instagram"
-    
+
 *   Complete DM is returned.
-    
+
 *   Uses only the single supplied pain point and strategy.
-    
+
 *   No additional prospect facts are invented.
-    
+
 *   No unsupported consequences, observations, outcomes, proof, sender claims, or mechanisms are added.
-    
+
 *   Limited research does not cause fabricated personalization.
-    
+
 *   CTA remains consistent with the supplied strategy.
-    
+
 *   No exception occurs.
-    
 
-Actual Output
--------------
-`   channel='instagram'  outreach_msg=DM(    message='Your company is actively hiring software engineers. Many tech firms see their careers pages not delivering enough qualified candidates. We’ve built custom careers-page designs that helped clients lift qualified applicants by about 30% and generate 2-3× more engineering candidates in half the time. I can put together a free demo of a page tailored to your brand—no commitment needed.'  )   `
-
-Failures
---------
+## Actual Output
+```python
+channel='instagram'
+outreach_msg=DM(
+    message='Your company is actively hiring software engineers. Many tech firms see their careers pages not delivering enough qualified candidates. We’ve built custom careers-page designs that helped clients lift qualified applicants by about 30% and generate 2-3× more engineering candidates in half the time. I can put together a free demo of a page tailored to your brand—no commitment needed.'
+)
+```
+## Failures
 
 *   **Unsupported consequence/problem:** "careers pages not delivering enough qualified candidates" was not in the research.
-    
-*   **Invented offer:** "custom careers-page designs" was not supplied.
-    
-*   **Fabricated proof:** "lift qualified applicants by about 30%" was not supplied.
-    
-*   **Fabricated outcome:** "generate 2-3× more engineering candidates in half the time" was not supplied.
-    
-*   **Invented mechanism:** "free demo" was not supplied.
-    
-*   **Unsupported personalization:** "tailored to your brand" was not supported.
-    
-*   **Grounding failure:** The limited research was expanded into a much more specific scenario and offer.
-    
 
-Passed Checks
--------------
+*   **Invented offer:** "custom careers-page designs" was not supplied.
+
+*   **Fabricated proof:** "lift qualified applicants by about 30%" was not supplied.
+
+*   **Fabricated outcome:** "generate 2-3× more engineering candidates in half the time" was not supplied.
+
+*   **Invented mechanism:** "free demo" was not supplied.
+
+*   **Unsupported personalization:** "tailored to your brand" was not supported.
+
+*   **Grounding failure:** The limited research was expanded into a much more specific scenario and offer.
+
+## Passed Checks
 
 *   channel == "instagram".
-    
-*   Complete DM was returned.
-    
-*   Execution completed without an exception.
-    
 
-Status
-------
+*   Complete DM was returned.
+
+*   Execution completed without an exception.
+
+## Status
 
 **FAIL**
 
-
 # T09 — Multiple Pains
-====================
 
-Input:
+## Input
 
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -817,80 +779,75 @@ Input:
   "channel": "facebook"
 }
 
-Expected Output
----------------
+```
+## Expected Output
 
-A valid Facebook Outreach\_Message where:
+A valid Facebook Outreach_Message where:
 
 *   channel == "facebook"
-    
+
 *   Complete DM is returned.
-    
+
 *   Uses one or more supplied pain points.
-    
+
 *   Does not merge the pains into unsupported claims.
-    
+
 *   No unsupported consequences or causal relationships.
-    
+
 *   No unsupported personal observations.
-    
+
 *   No fabricated sender experience, proof, outcomes, or offer mechanisms.
-    
+
 *   Stays within the supplied offer and angle.
-    
+
 *   CTA remains consistent with "Open to hearing how?".
-    
+
 *   No exception occurs.
-    
 
-Actual Output
--------------
-`   channel='facebook'  outreach_msg=DM(    message='Your team’s recent push to hire more software engineers suggests you’re scaling fast. When hiring ramps up, reaching the right candidates quickly often becomes the biggest bottleneck.\n\nOur recruitment automation tool trims time-to-fill by up to 30%. We’ve helped 15+ fast-growing tech firms cut hiring cycles by 25% on average and achieve 4x higher response rates from passive candidates.\n\nIf a short, no-commitment demo sounds useful, let me know.'  )   `
+## Actual Output
+```python
+channel='facebook'  
+outreach_msg=DM(    message='Your team’s recent push to hire more software engineers suggests you’re scaling fast. When hiring ramps up, reaching the right candidates quickly often becomes the biggest bottleneck.\n\nOur recruitment automation tool trims time-to-fill by up to 30%. We’ve helped 15+ fast-growing tech firms cut hiring cycles by 25% on average and achieve 4x higher response rates from passive candidates.\n\nIf a short, no-commitment demo sounds useful, let me know.'  )   
 
-Failures
---------
+```
+## Failures
 
 *   **Unsupported inference:** "suggests you’re scaling fast" is not explicitly supported.
-    
-*   **Unsupported consequence:** "reaching the right candidates quickly often becomes the biggest bottleneck" is not supplied.
-    
-*   **Invented offer:** "recruitment automation tool" was not supplied.
-    
-*   **Fabricated outcome:** "trims time-to-fill by up to 30%" was not supplied.
-    
-*   **Fabricated proof:** "helped 15+ fast-growing tech firms" was not supplied.
-    
-*   **Fabricated metrics:** "cut hiring cycles by 25%" and "4x higher response rates" were not supplied.
-    
-*   **Invented prospect characteristic:** "fast-growing" was not supplied.
-    
-*   **Invented mechanism:** "short, no-commitment demo" was not supplied.
-    
-*   **CTA deviation:** Generated CTA does not match "Open to hearing how?".
-    
-*   **Grounding failure:** Multiple supplied pains were used as a springboard for unsupported business conclusions and claims.
-    
 
-Passed Checks
--------------
+*   **Unsupported consequence:** "reaching the right candidates quickly often becomes the biggest bottleneck" is not supplied.
+
+*   **Invented offer:** "recruitment automation tool" was not supplied.
+
+*   **Fabricated outcome:** "trims time-to-fill by up to 30%" was not supplied.
+
+*   **Fabricated proof:** "helped 15+ fast-growing tech firms" was not supplied.
+
+*   **Fabricated metrics:** "cut hiring cycles by 25%" and "4x higher response rates" were not supplied.
+
+*   **Invented prospect characteristic:** "fast-growing" was not supplied.
+
+*   **Invented mechanism:** "short, no-commitment demo" was not supplied.
+
+*   **CTA deviation:** Generated CTA does not match "Open to hearing how?".
+
+*   **Grounding failure:** Multiple supplied pains were used as a springboard for unsupported business conclusions and claims.
+
+## Passed Checks
 
 *   channel == "facebook".
-    
-*   Complete Facebook DM returned.
-    
-*   Execution completed without an exception.
-    
 
-Status
-------
+*   Complete Facebook DM returned.
+
+*   Execution completed without an exception.
+
+## Status
 
 **FAIL**
 
-
 # T10 — Unsupported Consequence Trap
-==================================
 
-Input:
+## Input
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -922,77 +879,72 @@ Input:
   "channel": "linkedin"
 }
 
-Expected Output
----------------
+```
+## Expected Output
 
-A valid LinkedIn Outreach\_Message where:
+A valid LinkedIn Outreach_Message where:
 
 *   channel == "linkedin"
-    
+
 *   References only the supported hiring activity.
-    
+
 *   Does not introduce unsupported business consequences or causal relationships.
-    
+
 *   Does not disguise unsupported claims with "may", "might", "could", or "likely".
-    
+
 *   Does not invent observations, outcomes, proof, sender claims, or mechanisms.
-    
+
 *   Offer remains consistent with the supplied strategy.
-    
+
 *   CTA remains consistent with "Open to hearing how?".
-    
+
 *   No exception occurs.
-    
 
-Actual Output
--------------
-`   channel='linkedin'  outreach_msg=DM(    message='Hey,\n\nI see you’re actively hiring software engineers. Finding the right talent fast is a common bottleneck when scaling. We’ve built an AI-driven sourcing platform that you can try risk-free for two weeks – no commitment, just a live demo of a faster, cheaper hiring pipeline. In pilot projects for fast-growing tech firms, teams that needed 50+ engineers in three months cut time-to-fill by up to 40% and saved around $250K in recruiting spend.\n\nIf you’re open to a quick demo, let me know and I’ll set it up this week.'  )   `
+## Actual Output
+```python
+channel='linkedin'  
+outreach_msg=DM(    message='Hey,\n\nI see you’re actively hiring software engineers. Finding the right talent fast is a common bottleneck when scaling. We’ve built an AI-driven sourcing platform that you can try risk-free for two weeks – no commitment, just a live demo of a faster, cheaper hiring pipeline. In pilot projects for fast-growing tech firms, teams that needed 50+ engineers in three months cut time-to-fill by up to 40% and saved around $250K in recruiting spend.\n\nIf you’re open to a quick demo, let me know and I’ll set it up this week.'  )   
 
-Failures
---------
+```
+## Failures
 
 *   **Unsupported personal observation:** "I see you’re actively hiring" implies firsthand observation.
-    
-*   **Unsupported consequence:** "Finding the right talent fast is a common bottleneck when scaling" introduces an unsupported consequence.
-    
-*   **Invented offer:** "AI-driven sourcing platform" was not supplied.
-    
-*   **Invented mechanism:** "try risk-free for two weeks" was not supplied.
-    
-*   **Unsupported outcome:** "faster, cheaper hiring pipeline" was not supplied.
-    
-*   **Fabricated proof:** "pilot projects for fast-growing tech firms" was not supplied.
-    
-*   **Fabricated prospect/context claim:** "teams that needed 50+ engineers in three months" was not supplied.
-    
-*   **Fabricated metrics:** "cut time-to-fill by up to 40%" and "saved around $250K" were not supplied.
-    
-*   **Invented CTA/mechanism:** "quick demo" and "I'll set it up this week" were not supported.
-    
-*   **CTA deviation:** Does not preserve "Open to hearing how?".
-    
 
-Passed Checks
--------------
+*   **Unsupported consequence:** "Finding the right talent fast is a common bottleneck when scaling" introduces an unsupported consequence.
+
+*   **Invented offer:** "AI-driven sourcing platform" was not supplied.
+
+*   **Invented mechanism:** "try risk-free for two weeks" was not supplied.
+
+*   **Unsupported outcome:** "faster, cheaper hiring pipeline" was not supplied.
+
+*   **Fabricated proof:** "pilot projects for fast-growing tech firms" was not supplied.
+
+*   **Fabricated prospect/context claim:** "teams that needed 50+ engineers in three months" was not supplied.
+
+*   **Fabricated metrics:** "cut time-to-fill by up to 40%" and "saved around $250K" were not supplied.
+
+*   **Invented CTA/mechanism:** "quick demo" and "I'll set it up this week" were not supported.
+
+*   **CTA deviation:** Does not preserve "Open to hearing how?".
+
+## Passed Checks
 
 *   channel == "linkedin".
-    
-*   Complete LinkedIn DM returned.
-    
-*   No runtime exception occurred.
-    
 
-Status
-------
+*   Complete LinkedIn DM returned.
+
+*   No runtime exception occurred.
+
+## Status
 
 **FAIL**
 
-
 # T11 — Unsupported Personal Observation Trap
-===========================================
 
-Input
+## Input
 
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -1024,74 +976,70 @@ Input
   "channel": "instagram"
 }
 
-Expected Output
----------------
+```
+## Expected Output
 
-A valid Instagram Outreach\_Message where:
+A valid Instagram Outreach_Message where:
 
 *   channel == "instagram"
-    
+
 *   References the supplied hiring activity **without claiming firsthand observation**.
-    
+
 *   Does not use "I noticed", "I saw", "I found", "I looked at...", or equivalent unsupported observation language.
-    
+
 *   Does not invent where/how the hiring information was observed.
-    
+
 *   No unsupported consequences, outcomes, proof, sender claims, or mechanisms.
-    
+
 *   Offer remains consistent with the supplied strategy.
-    
+
 *   CTA remains consistent with "Open to hearing how?".
-    
+
 *   No exception occurs.
-    
 
-Actual Output
--------------
-`   channel='instagram'  outreach_msg=DM(    message='Hey, I saw you’re actively hiring software engineers. A lot of tech teams I work with struggle with career pages that don’t attract the right candidates fast enough. I can put together a free demo of a custom, conversion-focused hiring page—built on my 6+ years of web-design experience for tech firms—to show how a modern layout might shorten your hiring cycle.'  )   `
+## Actual Output
+```python
+channel='instagram'  
+outreach_msg=DM(    message='Hey, I saw you’re actively hiring software engineers. A lot of tech teams I work with struggle with career pages that don’t attract the right candidates fast enough. I can put together a free demo of a custom, conversion-focused hiring page—built on my 6+ years of web-design experience for tech firms—to show how a modern layout might shorten your hiring cycle.'  )   
 
-Failures
---------
+```
+## Failures
 
 *   **Unsupported personal observation:** "I saw you’re actively hiring software engineers."
-    
-*   **Fabricated sender relationship:** "tech teams I work with" was not supplied.
-    
-*   **Unsupported problem:** "career pages that don’t attract the right candidates fast enough" was not supplied.
-    
-*   **Invented offer:** "custom, conversion-focused hiring page" was not supplied.
-    
-*   **Invented mechanism:** "free demo" was not supplied.
-    
-*   **Fabricated sender proof:** "my 6+ years of web-design experience for tech firms" was not supplied.
-    
-*   **Unsupported outcome:** "shorten your hiring cycle" was not supported.
-    
-*   **CTA deviation:** The supplied CTA "Open to hearing how?" was omitted/replaced.
-    
-*   **Grounding failure:** The output violates the exact personal-observation trap the test is intended to detect.
-    
 
-Passed Checks
--------------
+*   **Fabricated sender relationship:** "tech teams I work with" was not supplied.
+
+*   **Unsupported problem:** "career pages that don’t attract the right candidates fast enough" was not supplied.
+
+*   **Invented offer:** "custom, conversion-focused hiring page" was not supplied.
+
+*   **Invented mechanism:** "free demo" was not supplied.
+
+*   **Fabricated sender proof:** "my 6+ years of web-design experience for tech firms" was not supplied.
+
+*   **Unsupported outcome:** "shorten your hiring cycle" was not supported.
+
+*   **CTA deviation:** The supplied CTA "Open to hearing how?" was omitted/replaced.
+
+*   **Grounding failure:** The output violates the exact personal-observation trap the test is intended to detect.
+
+## Passed Checks
 
 *   channel == "instagram".
-    
-*   Complete Instagram DM returned.
-    
-*   No exception occurred.
-    
 
-Status
-------
+*   Complete Instagram DM returned.
+
+*   No exception occurred.
+
+## Status
 
 **FAIL**
 
 # T12 — Unsupported Sender-Proof Trap
-===================================
 
-Input:
+## Input
 
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -1126,90 +1074,83 @@ Input:
   "channel": "email"
 }
 
+```
+## Expected Output
 
-
-Expected Output
----------------
-
-A valid email Outreach\_Message where:
+A valid email Outreach_Message where:
 
 *   channel == "email"
-    
-*   Non-empty subject\_line
-    
+
+*   Non-empty subject_line
+
 *   Complete email body
-    
+
 *   Uses the supplied customer-support hiring context.
-    
+
 *   Uses only the supplied sender proof: "We provide hiring support for growing teams."
-    
+
 *   Does **not** invent sender experience, clients, case studies, metrics, or previous results.
-    
+
 *   Does **not** introduce unrelated services such as portal redesign.
-    
+
 *   Does **not** invent a free demo, mock-up, trial, or guarantee.
-    
+
 *   Does not introduce unsupported prospect observations or consequences.
-    
+
 *   CTA remains consistent with "Open to hearing how?".
-    
+
 *   No exception occurs.
-    
 
-Actual Output
--------------
-`   channel='email'  outreach_msg=DM(    message='Hi,\n\nI saw you’ve opened several customer support roles recently. When hiring ramps up, the speed at which you can identify and engage the right candidates often dictates how quickly the team becomes productive.\n\nWe help teams like yours build a more efficient hiring pipeline – starting with a small, focused engagement on your current openings. As part of that, we can also redesign your support portal to match the new team’s workflow, something that’s delivered proven CSAT improvements for our SaaS clients.\n\nIf a free demo of a custom portal mock-up tailored to your current support flow sounds useful, just reply and I’ll send it over.\n\nThanks,\n[Your Name]'  )   `
+## Actual Output
+```python
+channel='email'  
+outreach_msg=DM(message='Hi,\n\nI saw you’ve opened several customer support roles recently. When hiring ramps up, the speed at which you can identify and engage the right candidates often dictates how quickly the team becomes productive.\n\nWe help teams like yours build a more efficient hiring pipeline – starting with a small, focused engagement on your current openings. As part of that, we can also redesign your support portal to match the new team’s workflow, something that’s delivered proven CSAT improvements for our SaaS clients.\n\nIf a free demo of a custom portal mock-up tailored to your current support flow sounds useful, just reply and I’ll send it over.\n\nThanks,\n[Your Name]'  )   
 
-Failures
---------
+```
+## Failures
 
-*   **Missing subject line:** Email output has no subject\_line.
-    
+*   **Missing subject line:** Email output has no subject_line.
+
 *   **Wrong output structure:** Returned DM(message=...) rather than the expected email structure.
-    
-*   **Unsupported personal observation:** "I saw you’ve opened several...".
-    
-*   **Unsupported consequence:** "often dictates how quickly the team becomes productive".
-    
-*   **Unsupported sender relationship:** "teams like yours" implies an unsupported similarity/relationship.
-    
-*   **Invented service:** "redesign your support portal" is outside the supplied offer.
-    
-*   **Fabricated sender proof:** "our SaaS clients" was not supplied.
-    
-*   **Fabricated outcome:** "proven CSAT improvements" was not supplied.
-    
-*   **Invented mechanism:** "free demo" and "custom portal mock-up" were not supplied.
-    
-*   **Unsupported personalization:** "tailored to your current support flow" was not supported.
-    
-*   **CTA deviation:** Does not use the supplied "Open to hearing how?".
-    
-*   **Grounding failure:** Sender proof was expanded into unsupported client history and performance claims.
-    
 
-Passed Checks
--------------
+*   **Unsupported personal observation:** "I saw you’ve opened several...".
+
+*   **Unsupported consequence:** "often dictates how quickly the team becomes productive".
+
+*   **Unsupported sender relationship:** "teams like yours" implies an unsupported similarity/relationship.
+
+*   **Invented service:** "redesign your support portal" is outside the supplied offer.
+
+*   **Fabricated sender proof:** "our SaaS clients" was not supplied.
+
+*   **Fabricated outcome:** "proven CSAT improvements" was not supplied.
+
+*   **Invented mechanism:** "free demo" and "custom portal mock-up" were not supplied.
+
+*   **Unsupported personalization:** "tailored to your current support flow" was not supported.
+
+*   **CTA deviation:** Does not use the supplied "Open to hearing how?".
+
+*   **Grounding failure:** Sender proof was expanded into unsupported client history and performance claims.
+
+## Passed Checks
 
 *   channel == "email".
-    
-*   Complete message returned.
-    
-*   Customer-support hiring context was referenced.
-    
-*   No runtime exception occurred.
-    
 
-Status
-------
+*   Complete message returned.
+
+*   Customer-support hiring context was referenced.
+
+*   No runtime exception occurred.
+
+## Status
 
 **FAIL**
 
 # T13 — Conflicting Information
-=============================
 
-
-Input:
+## Input
+```json
 {
   "qualification": "medium",
   "opportunity": {
@@ -1244,80 +1185,73 @@ Input:
   "channel": "linkedin"
 }
 
-
-Expected Output
----------------
+```
+## Expected Output
 
 The message should:
 
 *   Avoid resolving the contradiction between enterprise expansion and SMB focus as if both are simultaneously confirmed.
-    
+
 *   Avoid inventing consequences from the conflicting information.
-    
+
 *   Stay within the supplied sales-process offer, proof, low-risk mechanism, value, and CTA.
-    
+
 *   Avoid unsupported sender experience or personal observations.
-    
+
 *   Match the LinkedIn channel and output structure.
-    
 
-Actual Output
--------------
-`   channel='linkedin' outreach_msg=DM(message='Hi [Name], I saw your team is juggling enterprise expansion and a renewed focus on SMBs. When priorities swing, the sales process can get fragmented, which makes scaling tricky. We’ve helped teams tighten their process without overhauling everything – a short, focused engagement that maps the current workflow and adds a few guardrails. It’s a low-risk way to get a clearer, more consistent sales engine that matches whatever priority you’re on. Open to hearing how?')   `
+## Actual Output
+```python
+channel='linkedin' 
+outreach_msg=DM(message='Hi [Name], I saw your team is juggling enterprise expansion and a renewed focus on SMBs. When priorities swing, the sales process can get fragmented, which makes scaling tricky. We’ve helped teams tighten their process without overhauling everything – a short, focused engagement that maps the current workflow and adds a few guardrails. It’s a low-risk way to get a clearer, more consistent sales engine that matches whatever priority you’re on. Open to hearing how?')   
 
-Failures
---------
+```
+## Failures
 
 *   **Unsupported personal observation:** "I saw your team..." — the input provided conflicting research but did not state that the sender personally observed it.
-    
-*   **Unsupported consequence:** "the sales process can get fragmented" — fragmentation was not stated in the research or strategy.
-    
-*   **Unsupported business consequence:** "which makes scaling tricky" — scaling difficulty was not supported.
-    
-*   **Unsupported sender proof:** "We’ve helped teams tighten their process" — the supplied proof only says "We help teams structure and improve sales processes."
-    
-*   **Invented mechanism:** "maps the current workflow and adds a few guardrails" — not present in the supplied low-risk mechanism.
-    
-*   **Modified offer/value:** "sales engine" and "matches whatever priority you're on" extend beyond the supplied offer.
-    
-*   **Conflict handling issue:** The message converts the contradictory research into a definitive statement that the team is "juggling enterprise expansion and a renewed focus on SMBs" rather than treating the information as uncertain/conflicting.
-    
-*   Fabricated metrics or numerical claims.
-    
-*   Fabricated customer results.
-    
-*   CTA deviation.
-    
-*   Channel violation.
-    
 
-Passed Checks
--------------
+*   **Unsupported consequence:** "the sales process can get fragmented" — fragmentation was not stated in the research or strategy.
+
+*   **Unsupported business consequence:** "which makes scaling tricky" — scaling difficulty was not supported.
+
+*   **Unsupported sender proof:** "We’ve helped teams tighten their process" — the supplied proof only says "We help teams structure and improve sales processes."
+
+*   **Invented mechanism:** "maps the current workflow and adds a few guardrails" — not present in the supplied low-risk mechanism.
+
+*   **Modified offer/value:** "sales engine" and "matches whatever priority you're on" extend beyond the supplied offer.
+
+*   **Conflict handling issue:** The message converts the contradictory research into a definitive statement that the team is "juggling enterprise expansion and a renewed focus on SMBs" rather than treating the information as uncertain/conflicting.
+
+*   Fabricated metrics or numerical claims.
+
+*   Fabricated customer results.
+
+*   CTA deviation.
+
+*   Channel violation.
+
+## Passed Checks
 
 *   Channel is correctly linkedin.
-    
-*   Complete LinkedIn DM was returned.
-    
-*   No email subject was generated.
-    
-*   CTA "Open to hearing how?" matches the supplied strategy CTA.
-    
-*   No runtime exception.
-    
-*   The message uses the general sales-process theme from the supplied strategy.
-    
 
-Status
-------
+*   Complete LinkedIn DM was returned.
+
+*   No email subject was generated.
+
+*   CTA "Open to hearing how?" matches the supplied strategy CTA.
+
+*   No runtime exception.
+
+*   The message uses the general sales-process theme from the supplied strategy.
+
+## Status
 
 **FAIL**
 
-
 # T14 — Invalid Channel
-=====================
 
-
-Input:
+## Input
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -1350,59 +1284,53 @@ Input:
   "channel": "whatsapp"
 }
 
-Expected Output
----------------
-`   Input:  {    "channel": "whatsapp"  }   `
+```
+## Expected Output
+`Input:  {"channel": "whatsapp"}  `
 
-The whatsapp value should be rejected by the **upstream Strategy\_result schema**, because the current schema does not define a channel enum, but the downstream outreach\_message prompt only supports:
+The whatsapp value should be rejected by the **upstream Strategy_result schema**, because the current schema does not define a channel enum, but the downstream outreach_message prompt only supports:
 
 *   email
-    
+
 *   linkedin
-    
+
 *   instagram
-    
+
 *   facebook
-    
 
 Expected behavior: **validation/error should occur before attempting to generate an outreach message for an unsupported channel.**
 
-Actual Output
--------------
+## Actual Output
+```text
 `   The invalid-channel input raised an error.   `
 
-Failures
---------
+```
+## Failures
 
 *   **Invalid channel caused an error.**
-    
-*   Error behavior is explicitly validated at the schema boundary.
-    
-*   Error identifies whatsapp as an unsupported channel.
-    
-*   Error is handled gracefully rather than propagating as an unhandled runtime exception.
-    
-*   No outreach message is generated for the unsupported channel.
-    
 
-Passed Checks
--------------
+*   Error behavior is explicitly validated at the schema boundary.
+
+*   Error identifies whatsapp as an unsupported channel.
+
+*   Error is handled gracefully rather than propagating as an unhandled runtime exception.
+
+*   No outreach message is generated for the unsupported channel.
+
+## Passed Checks
 
 *   Unsupported channel did not result in a misleading Facebook/LinkedIn/Instagram/Email message.
-    
-*   Invalid input was rejected.
-    
 
-Status
-------
+*   Invalid input was rejected.
+
+## Status
 
 **FAIL**
 
-
 # T15 — Missing / Empty Critical Fields
-=====================================
 
-Input:
+## Input
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -1428,58 +1356,54 @@ Input:
   "channel": "instagram"
 }
 
-
-Expected Output
----------------
+```
+## Expected Output
 
 The agent should **not fabricate the missing information**. Since the input contains empty critical fields (pain, offer.problem, reason, angle.hooks, angle.angle, and angle.cta), safe behavior would be to reject the input or return a clear insufficiency/validation error.
 
-Actual Output
--------------
-`   channel='instagram' outreach_msg=DM(message='Hey, I help retailers tighten inventory without a tech overhaul. A free demo of our dashboard gives real-time visibility across all sales channels, cuts stockouts and overstock, and streamlines workflow. Retailers who tried it saw inventory errors drop about 30% in three months. Want me to send a quick 2-minute walkthrough?')   `
+## Actual Output
+```python
+channel='instagram' 
+outreach_msg=DM(message='Hey, I help retailers tighten inventory without a tech overhaul. A free demo of our dashboard gives real-time visibility across all sales channels, cuts stockouts and overstock, and streamlines workflow. Retailers who tried it saw inventory errors drop about 30% in three months. Want me to send a quick 2-minute walkthrough?')  
 
-Failures
---------
+```
+## Failures
 
 *   **Fabricated offer:** "our dashboard" was not supplied.
-    
-*   **Fabricated mechanism:** "real-time visibility across all sales channels" was not supplied.
-    
-*   **Unsupported outcomes:** "cuts stockouts and overstock" and "streamlines workflow" were not supplied.
-    
-*   **Fabricated proof:** "inventory errors drop about 30% in three months" was completely invented.
-    
-*   **Fabricated low-risk mechanism:** "free demo" was not supplied.
-    
-*   **Fabricated CTA/mechanism:** "2-minute walkthrough" was not supplied.
-    
-*   **Fabricated sender positioning:** "I help retailers..." was not supported by the input.
-    
-*   **Missing-data handling failure:** The model generated a highly specific offer despite critical strategy fields being empty.
-    
-*   Runtime exception.
-    
 
-Passed Checks
--------------
+*   **Fabricated mechanism:** "real-time visibility across all sales channels" was not supplied.
+
+*   **Unsupported outcomes:** "cuts stockouts and overstock" and "streamlines workflow" were not supplied.
+
+*   **Fabricated proof:** "inventory errors drop about 30% in three months" was completely invented.
+
+*   **Fabricated low-risk mechanism:** "free demo" was not supplied.
+
+*   **Fabricated CTA/mechanism:** "2-minute walkthrough" was not supplied.
+
+*   **Fabricated sender positioning:** "I help retailers..." was not supported by the input.
+
+*   **Missing-data handling failure:** The model generated a highly specific offer despite critical strategy fields being empty.
+
+*   Runtime exception.
+
+## Passed Checks
 
 *   Channel remained instagram.
-    
-*   A complete DM was returned.
-    
-*   No runtime exception occurred.
-    
 
-Status
-------
+*   A complete DM was returned.
+
+*   No runtime exception occurred.
+
+## Status
 
 **FAIL**
 
 # T16 — Dependency / LLM Failure
-==============================
 
-Input:
+## Input
 
+```json
 {
   "qualification": "strong",
   "opportunity": {
@@ -1514,50 +1438,47 @@ Input:
   "channel": "facebook"
 }
 
-Expected Output
----------------
+```
+## Expected Output
 
 The LLM dependency should fail and the system should return a controlled error. **No outreach message should be generated.**
 
-Actual Output
--------------
-`   channel='facebook' outreach_msg=DM(message='Hi, I saw your group recently expanded to five locations – a solid move. Keeping reservations consistent across sites can quickly become a headache. We’ve helped 12 multi-location restaurant groups tighten their reservation workflow and cut errors by about 40%, which makes daily ops smoother. I can set up a free demo of our reservation workflow tool so you can see the impact with zero commitment. Open to hearing how?')   `
+## Actual Output
+```python
+channel='facebook' 
+outreach_msg=DM(message='Hi, I saw your group recently expanded to five locations – a solid move. Keeping reservations consistent across sites can quickly become a headache. We’ve helped 12 multi-location restaurant groups tighten their reservation workflow and cut errors by about 40%, which makes daily ops smoother. I can set up a free demo of our reservation workflow tool so you can see the impact with zero commitment. Open to hearing how?')   
 
-Failures
---------
+```
+## Failures
 
 *   **Dependency failure was not demonstrated.** A normal successful LLM response was returned instead.
-    
-*   **Unsupported personal observation:** "I saw your group recently expanded..." was not stated as a firsthand observation.
-    
-*   **Unsupported consequence:** "can quickly become a headache" was not supported.
-    
-*   **Fabricated proof:** "12 multi-location restaurant groups" was invented.
-    
-*   **Fabricated metric:** "cut errors by about 40%" was invented.
-    
-*   **Unsupported outcome:** "makes daily ops smoother" was not provided.
-    
-*   **Invented offer/mechanism:** "reservation workflow tool" and "free demo" were not supplied.
-    
-*   Controlled dependency error returned.
-    
-*   No outreach message returned after dependency failure.
-    
 
-Passed Checks
--------------
+*   **Unsupported personal observation:** "I saw your group recently expanded..." was not stated as a firsthand observation.
+
+*   **Unsupported consequence:** "can quickly become a headache" was not supported.
+
+*   **Fabricated proof:** "12 multi-location restaurant groups" was invented.
+
+*   **Fabricated metric:** "cut errors by about 40%" was invented.
+
+*   **Unsupported outcome:** "makes daily ops smoother" was not provided.
+
+*   **Invented offer/mechanism:** "reservation workflow tool" and "free demo" were not supplied.
+
+*   Controlled dependency error returned.
+
+*   No outreach message returned after dependency failure.
+
+## Passed Checks
 
 *   Channel is facebook.
-    
-*   Complete Facebook DM was returned.
-    
-*   CTA matches the supplied strategy CTA.
-    
-*   No runtime exception was visible in the returned result.
-    
 
-Status
-------
+*   Complete Facebook DM was returned.
+
+*   CTA matches the supplied strategy CTA.
+
+*   No runtime exception was visible in the returned result.
+
+## Status
 
 **FAIL**
