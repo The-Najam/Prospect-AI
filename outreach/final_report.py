@@ -1,22 +1,18 @@
-from research.research_analyzer import research_agent_workflow, clean_html, fetch_all, url_classification,fetch_homepage,normalize_deduplicate_links
-from strategy.strategy_agent import strategy_agent, strategy_agent_workflow
-from outreach.ai_copywriter import outreach_agent_workflow, outreach_message
+# importing Libraries
 from models.workflow_state import WorkflowState
-import asyncio
-import json
+
 
 def _field(obj, name, default=None):
     if isinstance(obj, dict):
         return obj.get(name, default)
     return getattr(obj, name, default)
 
-
 def _dump(obj):
     if hasattr(obj, "model_dump"):
         return obj.model_dump()
     return obj
 
-
+# get report when Workflow Execution Failed
 def research_report(state:WorkflowState):
     research = _dump(state['research_result'])
     company = _field(research, "company", {}) or {}
@@ -36,6 +32,8 @@ def research_report(state:WorkflowState):
     }
     return {"final_report": report_data}
 
+
+# get partial Report
 def partial_report(state:WorkflowState):
     research = _dump(state['research_result'])
     company = _field(research, "company", {}) or {}
@@ -76,9 +74,10 @@ def partial_report(state:WorkflowState):
             "cta": _field(angle, "cta"),
         },
     }
-    
     return {"final_report": report_data}
 
+
+# Get Complete Report
 def report(state:WorkflowState):
     research = _dump(state['research_result'])
     company = _field(research, "company", {}) or {}
@@ -126,29 +125,3 @@ def report(state:WorkflowState):
     }
     return {"final_report": report_data}
 
-
-
-
-if __name__ == "__main__":
-    user_service, low_risk, proof = user_data()
-    url = "https://www.vistadentalimplants.com/"
-
-    page_content, links  = asyncio.run(fetch_homepage(url))
-    urls = normalize_deduplicate_links(links,url)
-    selected_pages_url = url_classification(urls)
-    selected_pages_url.append({"url":url, "page_type":"Home"})
-    page_content = asyncio.run(fetch_all(selected_pages_url))
-    content = clean_html(page_content)
-    content = content.model_dump()
-    research_result = research_agent_workflow(content,user_service)
-    research_result.user_service = user_service
-    research_result.user_proof = proof
-    research_result.user_low_risk = low_risk
-    strategy_input = research_result.model_dump()
-    strategy_result = strategy_agent_workflow(strategy_input)
-    result_strategy = strategy_result.model_dump()
-    result_strategy["channel"] = "instagram"
-    result_strategy["user_service"] = user_service
-    outreach_result = outreach_agent_workflow(result_strategy)
-    Final_report = report(research_result, strategy_result, outreach_result)
-    print(Final_report)
