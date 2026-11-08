@@ -3,89 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b0b0d">
     <title>Prospect AI</title>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="app.js" defer></script>
 </head>
 <body>
     <main class="app-container">
         <header class="page-header">
-            <h1>Prospect AI</h1>
-            <p>Generate a personalized prospect report.</p>
+            <a class="brand" href="#top" aria-label="Prospect AI home" id="top">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2.8 14.1 9.9 21.2 12l-7.1 2.1-2.1 7.1-2.1-7.1L2.8 12l7.1-2.1L12 2.8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                        <path d="m19 2 .7 2.3L22 5l-2.3.7L19 8l-.7-2.3L16 5l2.3-.7L19 2Z" fill="currentColor"/>
+                    </svg>
+                </span>
+                <span class="brand-name">Prospect <span>AI</span></span>
+            </a>
+            <div class="header-copy">
+                <p class="eyebrow">PROSPECT INTELLIGENCE WORKSPACE</p>
+                <h1>Research your next <span>prospect.</span></h1>
+                <p class="page-description">Turn prospect information into a tailored outreach report.</p>
+            </div>
         </header>
 
-        <section class="input-section" aria-labelledby="input-heading">
-            <h2 id="input-heading">Prospect Information</h2>
+        <section class="input-section panel" aria-labelledby="input-heading">
+            <div class="section-heading">
+                <div class="section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12m-8.48 8.48-2.12 2.12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/></svg>
+                </div>
+                <div>
+                    <h2 id="input-heading">Prospect information</h2>
+                    <p>Share a few details to prepare your report.</p>
+                </div>
+                <span class="required-note"><span aria-hidden="true">*</span> Required fields</span>
+            </div>
 
             <form id="prospect-form" novalidate>
                 <div class="form-field">
-                    <label for="url">Prospect URL</label>
-                    <input
-                        type="url"
-                        id="url"
-                        name="url"
-                        placeholder="https://example.com"
-                        required
-                    >
+                    <label for="url">Prospect URL <span class="required-mark" aria-hidden="true">*</span></label>
+                    <input type="url" id="url" name="url" placeholder="https://example.com" autocomplete="url" required aria-describedby="url-hint">
+                    <small id="url-hint" class="field-hint">Enter the prospect’s public website.</small>
                 </div>
 
                 <div class="form-field">
-                    <label for="user_service">Your Service</label>
-                    <textarea
-                        id="user_service"
-                        name="user_service"
-                        placeholder="Describe the service you provide"
-                        required
-                    ></textarea>
+                    <label for="user_service">Your service <span class="required-mark" aria-hidden="true">*</span></label>
+                    <textarea id="user_service" name="user_service" placeholder="Describe the service you provide" required></textarea>
                 </div>
 
                 <div class="form-field">
-                    <label for="low_risk_offer">Low-Risk Offer</label>
-                    <textarea
-                        id="low_risk_offer"
-                        name="low_risk_offer"
-                        placeholder="Describe your low-risk offer"
-                        required
-                    ></textarea>
+                    <label for="low_risk_offer">Low-risk offer <span class="required-mark" aria-hidden="true">*</span></label>
+                    <textarea id="low_risk_offer" name="low_risk_offer" placeholder="Describe your low-risk offer" required></textarea>
+                    <small class="field-hint">What can you offer to make the first step easier for a prospect?</small>
                 </div>
 
                 <div class="form-field">
-                    <label for="proof">Proof</label>
-                    <textarea
-                        id="proof"
-                        name="proof"
-                        placeholder="Testimonials, results, case studies, or other proof"
-                    ></textarea>
-                    <small>Optional</small>
+                    <div class="label-row">
+                        <label for="proof">Proof</label>
+                        <span class="optional-tag">Optional</span>
+                    </div>
+                    <textarea id="proof" name="proof" placeholder="Testimonials, results, case studies, or other proof"></textarea>
+                    <small class="field-hint">Include only evidence you can genuinely support.</small>
                 </div>
 
-                <div class="form-field">
-                    <label for="channel">Preferred Channel</label>
-                    <select id="channel" name="channel" required>
-                        <option value="">Select a channel</option>
-                        <option value="facebook">Facebook</option>
-                        <option value="instagram">Instagram</option>
-                        <option value="email">Email</option>
-                    </select>
-                </div>
+                <fieldset class="form-field channel-field">
+                    <legend>Preferred channel <span class="required-mark" aria-hidden="true">*</span></legend>
+                    <div class="channel-options">
+                        <label class="channel-option">
+                            <input type="radio" name="channel" value="email" required>
+                            <span class="channel-card">
+                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span>Email</span>
+                                <span class="radio-indicator" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="channel-option">
+                            <input type="radio" name="channel" value="instagram">
+                            <span class="channel-card">
+                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/><circle cx="17.6" cy="6.7" r="1" fill="currentColor"/></svg>
+                                <span>Instagram</span>
+                                <span class="radio-indicator" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                        <label class="channel-option">
+                            <input type="radio" name="channel" value="facebook">
+                            <span class="channel-card">
+                                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13.5 21v-8h2.8l.4-3.1h-3.2v-2c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.2v2.2H7.7V13h2.7v8h3.1Z" fill="currentColor"/></svg>
+                                <span>Facebook</span>
+                                <span class="radio-indicator" aria-hidden="true"></span>
+                            </span>
+                        </label>
+                    </div>
+                </fieldset>
 
-                <button type="submit" id="submit-button">
-                    Generate Report
-                </button>
+                <div class="form-footer">
+                    <p class="privacy-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Your details are used to generate this report.</p>
+                    <button type="submit" id="submit-button" class="primary-button">Generate Report</button>
+                </div>
             </form>
         </section>
 
-        <section
-            class="report-section"
-            id="report-section"
-            aria-labelledby="report-heading"
-            hidden
-        >
-            <h2 id="report-heading">Final Report</h2>
-
-            <output id="final-report" aria-live="polite"></output>
+        <section class="report-section panel" id="report-section" aria-labelledby="report-heading" hidden>
+            <div class="report-header">
+                <div class="section-heading">
+                    <div class="section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3.8V8h4M9 12h6m-6 4h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                    </div>
+                    <div>
+                        <p class="eyebrow report-eyebrow">YOUR RESULTS</p>
+                        <h2 id="report-heading">Prospect report</h2>
+                        <p>Review your findings and export the report below.</p>
+                    </div>
+                </div>
+            </div>
+            <output id="final-report" aria-live="polite" aria-busy="false"></output>
         </section>
+
+        <footer class="page-footer">
+            <span>Prospect AI</span>
+            <span>Research with purpose. Reach out with context.</span>
+        </footer>
     </main>
 </body>
 </html>
