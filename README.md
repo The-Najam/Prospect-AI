@@ -145,145 +145,105 @@ Prospect AI is built using a Python-based backend, LangGraph orchestration, mult
 
 ### 1. FastAPI BackgroundTasks Instead of a Dedicated Task Queue
 
-**Decision:** Used FastAPI's in-process BackgroundTasks to execute prospect research workflows asynchronously.
+**Decision:** Used FastAPI's in-process `BackgroundTasks` to execute prospect research workflows asynchronously.
 
-**Alternatives Considered:**
-- Celery: Requires a message broker (Redis or RabbitMQ), separate worker processes, and additional configuration. Its traditional prefork execution model also introduces friction when running async Playwright-based workflows.
-- RQ: Simple to use, but its process-forking model and Windows development limitations introduced additional environment and deployment complexity during an initial implementation spike.
+**Rationale:**
+- Avoided the additional infrastructure required by Celery (Redis/RabbitMQ and worker processes).
+- RQ's process-forking model and Windows limitations introduced unnecessary development and deployment complexity.
+- PostgreSQL already provides persistent execution records.
+- The 4 GB Azure VM limits practical Chromium concurrency, reducing the immediate benefit of independently scalable workers.
 
-**Why This Choice:**
-- **Simpler Infrastructure:** Avoided introducing Redis, RabbitMQ, and separate worker containers for a relatively straightforward background execution requirement.
-- **Persistent Execution Records:** PostgreSQL already stores run IDs, execution status, timestamps, and generated reports, allowing clients to retrieve results independently of the original request.
-- **Limited Concurrency Requirements:** The 4 GB Azure VM infrastructure realistically supports only a small number of concurrent Chromium sessions, limiting the immediate benefit of independent worker scaling.
-- **Development Efficiency:** An initial RQ implementation spike revealed additional environment and Docker setup overhead. Development effort was prioritized toward deployment and system evaluation instead.
-
-**Trade-off:** BackgroundTasks keeps the architecture lightweight but does not provide durable job execution. Tasks can be lost if the application process or VM restarts. It also limits independent worker scaling and requires careful concurrency management.
-
-A dedicated async task queue such as arq remains a potential future improvement if workload volume or reliability requirements increase.
+**Trade-off:** BackgroundTasks keeps deployment simple but does not guarantee task durability. Tasks can be lost during application or VM restarts, and worker scaling is limited. A dedicated async queue such as `arq` remains a future option if reliability or workload demands increase.
 
 ### 2. PostgreSQL for Persistent Execution Tracking
 
-**Decision:** Used PostgreSQL to persist workflow execution states, run metadata, generated reports, error details, and token usage.
+**Decision:** Used PostgreSQL to store execution states, run metadata, generated reports, errors, and token usage.
 
-**Alternatives Considered:**
-- Redis: Could provide fast in-memory state storage, but persistence and long-term historical analysis would require additional configuration and management.
-- In-memory Dictionary: Simple to implement, but execution records would be lost when the application restarts and would not support reliable historical analysis.
+**Rationale:**
+- Provides persistent execution history across application restarts.
+- Supports historical analysis of failures, token consumption, and workflow performance.
+- Centralizes execution state and generated outputs without introducing a separate storage system.
 
-**Why This Choice:**
-- **Persistent Execution History:** Retains execution records beyond individual application sessions and restarts.
-- **Evaluation & Improvement:** Preserves historical runs, failure information, and token usage for future analysis and identification of areas requiring improvement.
-- **Centralized State Management:** Keeps execution status, report data, and error information in one persistent storage system.
-
-**Trade-off:** PostgreSQL introduces additional infrastructure and operational overhead compared to Redis or an in-memory solution. For a relatively simple execution-tracking requirement, it may be considered more than strictly necessary. However, persistent historical data supports future evaluation and system improvement.
+**Trade-off:** PostgreSQL adds infrastructure overhead compared to in-memory storage or Redis. However, persistent historical data provides a foundation for evaluating and improving the system.
 
 ### 3. Multi-Provider LLM Architecture: Groq + Google Gemini
 
-**Decision:** Adopted a multi-provider LLM architecture, assigning different responsibilities to Groq and Google Gemini based on their practical limitations and output quality.
+**Decision:** Distributed LLM responsibilities between Groq and Google Gemini based on observed token limits and output quality.
 
-**Alternatives Considered:**
-- **Groq-only:** Initially considered using Groq for the entire pipeline, but its token limits were reached quickly, preventing reliable execution of the complete workflow. Its output quality was also less suitable for additional research and personalized outreach generation.
-- **Gemini-only:** Could simplify provider integration, but a single-provider architecture would not take advantage of the task-specific strengths observed during experimentation.
+**Rationale:**
+- **Groq:** Handles prospect research, web-search reasoning, and qualification strategy.
+- **Gemini:** Handles supplementary research and personalized outreach generation.
+- A Groq-only approach encountered token limitations and produced less suitable results for certain tasks.
+- Splitting responsibilities allows each provider to handle the workloads where it performed better.
 
-**Why This Choice:**
-- **Groq for Research & Strategy:** Used for prospect research, web-search reasoning, and qualification strategy generation.
-- **Gemini for Additional Research:** Handles supplementary research when the initial analysis identifies missing information.
-- **Gemini for Outreach Generation:** Produces personalized outreach messages with better output quality for this particular task.
-- **Workload Distribution:** Separating responsibilities reduces dependence on a single provider and allows different models to handle the tasks for which they performed better.
-
-**Trade-off:** Integrating multiple LLM providers introduces additional configuration, integration complexity, and model-fallback handling. However, it provides greater flexibility in distributing tasks according to token limits and observed output quality.
+**Trade-off:** Multiple providers introduce additional integration, configuration, and fallback complexity. In return, the architecture offers greater flexibility in managing token limits and output quality.
 
 ### 4. Crawl4AI for Website Extraction & BeautifulSoup for Content Cleaning
 
-**Decision:** Used Crawl4AI for website crawling and page extraction, combined with BeautifulSoup4 and lxml for HTML parsing and content cleaning.
+**Decision:** Combined Crawl4AI for website crawling and extraction with BeautifulSoup4 and `lxml` for HTML parsing and cleaning.
 
-**Alternatives Considered:**
-- **Python Requests alone:** Suitable for basic HTTP fetching but less flexible for browser-based extraction and more advanced crawling strategies.
-- **Other scraping libraries:** Could handle basic extraction, but Crawl4AI offered configurable crawling capabilities better suited to the project's direction.
+**Rationale:**
+- Crawl4AI provides configurable crawling and extraction capabilities for multi-page research.
+- BeautifulSoup4 and `lxml` provide established HTML parsing and content-cleaning functionality.
+- Separating extraction from content processing keeps responsibilities modular and allows future crawling enhancements.
 
-**Why This Choice:**
-- **Configurable Extraction:** Crawl4AI provides extraction and crawling settings that support the project's current small-scale, multi-page extraction requirements.
-- **Future Extensibility:** Its crawling strategies provide flexibility for introducing more advanced website crawling approaches later.
-- **Separation of Responsibilities:** Crawl4AI handles website crawling and page fetching, while BeautifulSoup4 and lxml handle HTML parsing and cleaning.
-- **Established HTML Processing:** BeautifulSoup4 provides a familiar and widely used approach for parsing and manipulating HTML content.
-
-**Trade-off:** Using separate tools for extraction and cleaning introduces additional dependencies and processing steps. However, it keeps website crawling and content processing responsibilities clearly separated.
+**Trade-off:** Using separate libraries introduces additional dependencies and processing steps but provides clearer separation of responsibilities.
 
 ### 5. Workflow-Level Retries Instead of Retrying the Entire Pipeline
 
-**Decision:** Implemented workflow-level retries with a maximum of three attempts per workflow, combined with stage-specific fallback paths.
+**Decision:** Implemented workflow-level retries (maximum three attempts) with stage-specific fallback paths.
 
-**Alternatives Considered:**
-- **Entire Pipeline Retry:** Restarting the complete LangGraph pipeline whenever a stage fails.
-- **No Retry Mechanism:** Allowing individual workflow failures to terminate the entire execution immediately.
+**Rationale:**
+- Avoids rerunning successful LLM operations and incurring unnecessary token costs.
+- Isolates failures to individual workflows rather than restarting the entire LangGraph pipeline.
+- Preserves successful stage outputs for subsequent processing and fallback report generation.
+- Keeps retry logic localized and easier to manage.
 
-**Why This Choice:**
-- **Cost Efficiency:** Restarting the entire pipeline would repeat previously successful LLM operations, increasing token consumption and API costs.
-- **Targeted Recovery:** Only the failed workflow is retried, avoiding unnecessary re-execution of successful stages.
-- **Preserving Successful Results:** Previously completed stages remain available and can contribute to fallback report generation.
-- **Simpler Execution:** Keeps retry logic localized to individual workflows instead of introducing pipeline-wide retry complexity.
-- **Stage-Specific Fallbacks:** When retries are exhausted, the pipeline follows the appropriate fallback path to preserve whatever useful output is available.
-
-**Trade-off:** Workflow-level retries require stage-specific failure handling and fallback logic. A failed stage may also leave the final report incomplete, depending on where execution stops. However, this approach avoids repeating expensive operations and preserves useful results from successful stages.
+**Trade-off:** Requires workflow-specific failure handling and fallback logic. Reports may still be incomplete when a stage exhausts its retries, but previously successful results remain available.
 
 ### 6. Per-IP API Rate Limiting Using SlowAPI
 
-**Decision:** Implemented IP-based API rate limiting using SlowAPI to control request frequency and prevent unnecessary API usage.
+**Decision:** Implemented IP-based request rate limiting using SlowAPI.
 
-**Alternatives Considered:**
-- **No Rate Limiting:** Allowing unrestricted API requests.
-- **Authentication-Based Quotas:** Enforcing usage limits through individual user accounts, which would introduce additional authentication and user-management requirements.
+**Rationale:**
+- Restricts excessive requests and unnecessary workflow executions.
+- Helps control LLM API costs and backend resource consumption.
+- Provides lightweight request protection without introducing authentication or a dedicated rate-limiting service.
 
-**Why This Choice:**
-- **Preventing Unnecessary Requests:** Restricts excessive or repeated requests from the same IP address.
-- **API Cost Control:** Helps limit unnecessary workflow executions and associated LLM token consumption.
-- **Resource Protection:** Reduces the risk of excessive requests consuming backend and browser-extraction resources.
-- **Lightweight Implementation:** Provides request-level protection without requiring a dedicated rate-limiting service.
-
-**Trade-off:** IP-based rate limiting does not provide individual user-level quotas. Multiple users sharing an IP may affect one another, while users with different IPs can still make separate requests. The current implementation is sufficient for the project's relatively low request volume but may require more granular usage controls as adoption increases.
+**Trade-off:** IP-based limits do not provide individual user quotas. Users sharing an IP may affect one another, while requests from different IPs are tracked separately. More granular usage controls may be needed as adoption increases.
 
 ### 7. Azure VM & Regional Deployment
 
-**Decision:** Deployed the backend using Docker on an Azure Virtual Machine in the Sweden Central region.
+**Decision:** Deployed the backend in Docker on an Azure Virtual Machine in the Sweden Central region.
 
-**Alternatives Considered:**
-- **Other Cloud Providers:** Could provide similar VM-based deployment options but would introduce additional infrastructure costs.
-- **Other Azure Regions:** Could offer alternative VM availability, but regional compatibility with external LLM providers needed consideration.
+**Rationale:**
+- Leveraged an existing Azure subscription to avoid additional cloud-provider costs.
+- Selected a region compatible with Groq's deployment restrictions encountered during implementation.
+- Provided access to the required B2als VM size.
+- Used Docker for consistent runtime environments and simplified deployment.
 
-**Why This Choice:**
-- **Existing Cloud Subscription:** Used an existing Azure subscription instead of introducing additional cloud-provider expenses.
-- **LLM Provider Compatibility:** Selected Sweden Central because it was outside the Groq-restricted regions encountered during deployment.
-- **VM Availability:** The selected region offered the required B2als VM size for the project's infrastructure requirements.
-- **Containerized Deployment:** Docker provides a consistent backend runtime and simplifies deployment and environment management.
-
-**Trade-off:** Choosing a region based on both VM availability and LLM provider restrictions narrows deployment options. Additionally, the selected VM's limited resources constrain concurrent browser-based extraction and workflow execution.
+**Trade-off:** Regional selection was constrained by both VM availability and LLM provider compatibility. The VM's limited resources also restrict concurrent browser sessions and workflow execution.
 
 ### 8. Lightweight Frontend Using Vanilla JavaScript
 
-**Decision:** Built the frontend using vanilla HTML, CSS, and JavaScript instead of introducing a frontend framework.
+**Decision:** Built the frontend using vanilla HTML, CSS, and JavaScript instead of React or Next.js.
 
-**Alternatives Considered:**
-- **React:** Provides component-based architecture and a larger ecosystem but introduces additional dependencies and tooling.
-- **Next.js:** Offers routing and server-side rendering capabilities that were not necessary for the application's initial requirements.
+**Rationale:**
+- Avoided unnecessary framework dependencies, tooling, and build complexity.
+- Enabled faster implementation of the required interface and API interactions.
+- Provided sufficient structure for the application's current UI and request lifecycle.
 
-**Why This Choice:**
-- **Lightweight Architecture:** Keeps the frontend simple without introducing unnecessary frameworks or dependencies.
-- **Faster Development:** Allows direct implementation of the required interface and API interactions.
-- **Sufficient for Current Requirements:** The application's interface and request lifecycle did not require a complex frontend architecture.
-- **Simpler Maintenance:** Reduces the frontend tooling and dependency overhead during early development.
-
-**Trade-off:** Vanilla JavaScript offers less built-in structure for managing increasingly complex interfaces. As the application grows, introducing a frontend framework may become beneficial.
-
-
+**Trade-off:** Vanilla JavaScript offers less built-in structure as interface complexity grows. A frontend framework may become beneficial as the application expands.
 
 # Testing & Evaluation
 
 Prospect AI was evaluated through two testing phases: baseline functional testing and failure/edge-case testing. The evaluation focused on workflow reliability, generated report quality, execution latency, and system behavior under abnormal conditions.
 
-1. Baseline Testing
+## 1. Baseline Testing
 
 Baseline testing involved submitting different prospect websites and input configurations to evaluate normal end-to-end workflow execution.
 
-## Results:
+### Results:
 
 | Metric | Observed Result |
 |---|---|
@@ -299,14 +259,14 @@ Baseline testing involved submitting different prospect websites and input confi
 | Average latency (all attempts) | 61.7 seconds |
 | Average latency (successful runs) | 60.7 seconds |
 
-## Failure Breakdown:
+### Failure Breakdown:
 
 - Website extraction failures: 3/20 (15%).
 - Workflow execution failures: 2/20 (10%).
 
 These categories account for all five unsuccessful executions.
 
-2. Manual Report Quality Evaluation
+## 2. Manual Report Quality Evaluation
 
 Successful reports were manually evaluated using a structured scoring rubric (rubric.md), with a maximum score of 18 points.
 
@@ -322,11 +282,11 @@ The evaluation considered:
 
 The average score across 15 evaluated reports was 12.87/18 (71.5%). Additionally, 13 out of 20 total executions were marked as producing usable reports.
 
-3. Failure & Edge-Case Testing
+## 3. Failure & Edge-Case Testing
 
 A separate failure-testing phase evaluated the system under abnormal conditions to assess input validation, error handling, workflow recovery, and frontend behavior.
 
-Results:
+### Results:
 
 | Metric | Result |
 |---|---|
@@ -335,7 +295,7 @@ Results:
 | Partial pass | 1 |
 | Unresolved failures | 0 |
 
-Scenarios covered:
+### Scenarios covered:
 
 - Input validation and malformed URLs.
 - Inaccessible websites and extraction failures.
@@ -353,7 +313,7 @@ Remaining Verification — FT_012:
 
 The insufficient-content scenario requires further verification to ensure the frontend clearly identifies reports with empty or meaningless extracted content as insufficient data, rather than presenting them as normal completed reports.
 
-4. Improvements Following Testing
+## 4. Improvements Following Testing
 
 Testing observations led to several improvements:
 
@@ -363,7 +323,7 @@ Testing observations led to several improvements:
 - Improved insufficient-data handling and API failure messages (FT_012–FT_014).
 
 
-5. Evaluation Scope
+## 5. Evaluation Scope
 
 The evaluation currently focuses on manually assessed report quality, workflow completion, failure handling, and execution latency.
 
